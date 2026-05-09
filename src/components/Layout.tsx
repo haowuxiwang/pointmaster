@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Canvas from './Canvas'
+import ZSlider from './ZSlider'
 
 export default function Layout() {
   const [activeTool, setActiveTool] = useState('select')
@@ -27,7 +28,10 @@ export default function Layout() {
         </aside>
 
         {/* Canvas */}
-        <Canvas />
+        <div className="flex-1 relative overflow-hidden">
+          <Canvas />
+          <ZSlider />
+        </div>
 
         {/* Right panel */}
         <aside className="w-64 bg-white border-l border-gray-200 p-3 overflow-y-auto">
