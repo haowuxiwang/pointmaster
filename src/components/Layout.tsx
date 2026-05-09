@@ -9,6 +9,8 @@ import PointListPanel from './panels/PointListPanel'
 import TemplatePanel from './panels/TemplatePanel'
 import { exportToSVG } from '@/core/export/svgExport'
 import { exportToPNG } from '@/core/export/pngExport'
+import { useProjectStore } from '@/store/projectStore'
+import { saveProjectToFile, loadProjectFromFile } from '@/utils/fileIO'
 
 export default function Layout() {
   const [activeTool, setActiveTool] = useState('select')
@@ -16,6 +18,17 @@ export default function Layout() {
   const [showNewProject, setShowNewProject] = useState(false)
   const [showAutoPlace, setShowAutoPlace] = useState(false)
   const [showExport, setShowExport] = useState(false)
+
+  const saveProject = useProjectStore((s) => s.saveProject)
+  const loadProject = useProjectStore((s) => s.loadProject)
+
+  const handleSave = () => {
+    saveProjectToFile(saveProject())
+  }
+
+  const handleOpen = () => {
+    loadProjectFromFile().then((data) => loadProject(data))
+  }
 
   const handleExport = async (format: 'svg' | 'png', scale?: number) => {
     const svgEl = document.querySelector('.tl-svg-context') as SVGSVGElement | null
@@ -42,9 +55,10 @@ export default function Layout() {
         <span className="font-bold text-gray-700">验证布点图工具</span>
         <nav className="ml-6 flex gap-4 text-gray-500">
           <button className="hover:text-gray-800" onClick={() => setShowNewProject(true)}>新建</button>
+          <button className="hover:text-gray-800" onClick={handleSave}>保存</button>
+          <button className="hover:text-gray-800" onClick={handleOpen}>打开</button>
           <button className="hover:text-gray-800" onClick={() => setShowAutoPlace(true)}>自动布点</button>
           <button className="hover:text-gray-800" onClick={() => setShowExport(true)}>导出</button>
-          <button className="hover:text-gray-800">文件</button>
           <button className="hover:text-gray-800">编辑</button>
           <button className="hover:text-gray-800">视图</button>
           <button className="hover:text-gray-800">帮助</button>
