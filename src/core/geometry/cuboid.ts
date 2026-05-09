@@ -14,7 +14,7 @@ export function getCuboidVertices(dims: ChamberDimensions): Point3D[] {
   ];
 }
 
-export function getCuboidEdges(dims: ChamberDimensions): [number, number][] {
+export function getCuboidEdges(_dims: ChamberDimensions): [number, number][] {
   return [
     [0,1],[1,2],[2,3],[3,0],  // bottom
     [4,5],[5,6],[6,7],[7,4],  // top
