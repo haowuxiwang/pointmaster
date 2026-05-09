@@ -2,10 +2,12 @@ import { useState } from 'react'
 import Canvas from './Canvas'
 import ZSlider from './ZSlider'
 import NewProjectDialog from './dialogs/NewProjectDialog'
+import AutoPlaceDialog from './dialogs/AutoPlaceDialog'
 
 export default function Layout() {
   const [activeTool, setActiveTool] = useState('select')
   const [showNewProject, setShowNewProject] = useState(false)
+  const [showAutoPlace, setShowAutoPlace] = useState(false)
 
   return (
     <div className="w-full h-screen flex flex-col">
@@ -14,6 +16,7 @@ export default function Layout() {
         <span className="font-bold text-gray-700">验证布点图工具</span>
         <nav className="ml-6 flex gap-4 text-gray-500">
           <button className="hover:text-gray-800" onClick={() => setShowNewProject(true)}>新建</button>
+          <button className="hover:text-gray-800" onClick={() => setShowAutoPlace(true)}>自动布点</button>
           <button className="hover:text-gray-800">文件</button>
           <button className="hover:text-gray-800">编辑</button>
           <button className="hover:text-gray-800">视图</button>
@@ -50,6 +53,7 @@ export default function Layout() {
         <span>Z层: 400mm</span>
       </footer>
       <NewProjectDialog open={showNewProject} onClose={() => setShowNewProject(false)} />
+      <AutoPlaceDialog open={showAutoPlace} onClose={() => setShowAutoPlace(false)} />
     </div>
   )
 }
