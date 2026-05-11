@@ -28,11 +28,18 @@ class Pointing extends StateNode {
     const { editor } = this
     const point = editor.inputs.getCurrentPagePoint()
 
-    // Count existing probe-point shapes to generate next label
+    // Find max existing label number to avoid duplicates
     const existing = editor
       .getCurrentPageShapes()
       .filter((s) => s.type === 'probe-point')
-    const label = `T${existing.length + 1}`
+    let maxNum = 0
+    for (const shape of existing) {
+      const match = shape.props.pointData?.label?.match(/^T(\d+)$/)
+      if (match) {
+        maxNum = Math.max(maxNum, parseInt(match[1], 10))
+      }
+    }
+    const label = `T${maxNum + 1}`
 
     const id = createShapeId()
     editor.markHistoryStoppingPoint(`creating_probe_point:${id}`)
@@ -46,6 +53,8 @@ class Pointing extends StateNode {
         h: 40,
         pointData: {
           label,
+          // TODO: Derive 3D position from 2D canvas coordinates
+          // Currently using placeholder values; needs inverse isometric projection
           position: { x: 0, y: 0, z: 0 },
           properties: {},
         },

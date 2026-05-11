@@ -1,4 +1,4 @@
-import { ShapeUtil, T, TLBaseShape, SVGContainer, Rectangle2d } from 'tldraw'
+import { ShapeUtil, T, TLBaseShape, SVGContainer, Circle2d } from 'tldraw'
 import type { ProbePointData } from '@/types'
 
 type ProbePointShape = TLBaseShape<'probe-point', {
@@ -29,27 +29,20 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
   }
 
   getGeometry(shape: ProbePointShape) {
-    return new Rectangle2d({
-      width: shape.props.w,
-      height: shape.props.h,
+    return new Circle2d({
+      radius: shape.props.w / 2,
       isFilled: false,
     })
   }
 
   component(shape: ProbePointShape) {
     const { pointData } = shape.props
-    const { label, position } = pointData
-
-    // Color varies by Z level (higher = darker)
-    const zRatio = Math.min(position.z / 1000, 1)
-    const lightness = Math.round(40 + zRatio * 30)
-    const color = `hsl(210, 80%, ${lightness}%)`
+    const { label } = pointData
 
     return (
       <SVGContainer>
-        <circle cx={0} cy={0} r={14} fill="white" stroke={color} strokeWidth={2} />
-        <circle cx={0} cy={0} r={4} fill={color} />
-        <text x={0} y={-20} fontSize={11} fill={color} textAnchor="middle" fontWeight="bold">
+        <circle cx={0} cy={0} r={3} fill="#000" />
+        <text x={0} y={-10} fontSize={11} fill="#000" textAnchor="middle">
           {label}
         </text>
       </SVGContainer>

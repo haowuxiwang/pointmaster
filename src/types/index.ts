@@ -19,6 +19,7 @@ export interface ChamberDimensions {
   width: number;   // mm
   depth: number;   // mm
   height: number;  // mm
+  layers?: number; // 层数，默认1
 }
 
 /** 腔室定义 */
@@ -28,6 +29,7 @@ export interface Chamber {
   dimensions: ChamberDimensions;
   radius?: number;
   vertices?: Point2D[];
+  ventPorts?: Point3D[];  // 排气口/冷点位置
 }
 
 /** 探头点位 */

@@ -4,11 +4,11 @@
 Pharmaceutical equipment validation point layout diagram tool. Replaces CAD for creating isometric temperature probe placement diagrams.
 
 ## Tech Stack
-- React 18 + TypeScript + Vite
-- tldraw v2 (canvas engine with custom shapes)
+- React 19 + TypeScript + Vite
+- tldraw v5 (canvas engine with custom shapes)
 - Zustand (business state)
 - Tailwind CSS
-- Electron 28
+- Electron 42
 
 ## Commands
 - `npm run dev` - Start dev server

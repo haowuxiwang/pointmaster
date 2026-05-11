@@ -41,8 +41,9 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
 
   component(shape: DimensionShape) {
     const { from, to, label } = shape.props
-    const p1 = isoProject(from.x, from.y, from.z)
-    const p2 = isoProject(to.x, to.y, to.z)
+    const scale = 0.2
+    const p1 = isoProject(from.x, from.y, from.z, scale)
+    const p2 = isoProject(to.x, to.y, to.z, scale)
     const mx = (p1.x + p2.x) / 2
     const my = (p1.y + p2.y) / 2
 

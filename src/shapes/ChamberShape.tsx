@@ -40,26 +40,46 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
   component(shape: ChamberShape) {
     const { chamberData } = shape.props
     const { type, dimensions } = chamberData
-    const { width, depth, height } = dimensions
+    const { width, depth, height, layers = 1 } = dimensions
 
-    let path: string
+    let outlinePath: string
+    let layerPath: string
     if (type === 'cylinder') {
       const radius = chamberData.radius ?? Math.min(width, depth) / 2
-      path = cylinderPath(radius, height)
+      const result = cylinderPath(radius, height, 16, 0.2, layers)
+      outlinePath = result.outline
+      layerPath = result.layers
+    } else if (type === 'polygon' && chamberData.vertices) {
+      // TODO: Implement proper polygon rendering with isometric projection
+      // For now, render as cuboid fallback
+      const result = cuboidPath(width, depth, height, 0.2, layers)
+      outlinePath = result.outline
+      layerPath = result.layers
     } else {
-      path = cuboidPath(width, depth, height)
+      const result = cuboidPath(width, depth, height, 0.2, layers)
+      outlinePath = result.outline
+      layerPath = result.layers
     }
 
     return (
       <SVGContainer>
         <path
-          d={path}
+          d={outlinePath}
           fill="none"
-          stroke="#333"
-          strokeWidth={1.5}
+          stroke="#000"
+          strokeWidth={1}
           strokeLinejoin="round"
         />
-        <text x={0} y={-10} fontSize={12} fill="#666" textAnchor="middle">
+        {layerPath && (
+          <path
+            d={layerPath}
+            fill="none"
+            stroke="#ccc"
+            strokeWidth={0.5}
+            strokeDasharray="4 2"
+          />
+        )}
+        <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">
           {chamberData.name}
         </text>
       </SVGContainer>

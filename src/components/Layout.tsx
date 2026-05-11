@@ -1,10 +1,7 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import Canvas from './Canvas'
 import ZSlider from './ZSlider'
 import NewProjectDialog from './dialogs/NewProjectDialog'
-import AutoPlaceDialog from './dialogs/AutoPlaceDialog'
-import ExportDialog from './dialogs/ExportDialog'
-import PropertiesPanel from './panels/PropertiesPanel'
 import PointListPanel from './panels/PointListPanel'
 import TemplatePanel from './panels/TemplatePanel'
 import { exportToSVG } from '@/core/export/svgExport'
@@ -14,13 +11,23 @@ import { saveProjectToFile, loadProjectFromFile } from '@/utils/fileIO'
 
 export default function Layout() {
   const [activeTool, setActiveTool] = useState('select')
-  const [activeTab, setActiveTab] = useState<'properties' | 'points' | 'templates'>('properties')
+  const [activeTab, setActiveTab] = useState<'points' | 'templates'>('points')
   const [showNewProject, setShowNewProject] = useState(false)
-  const [showAutoPlace, setShowAutoPlace] = useState(false)
-  const [showExport, setShowExport] = useState(false)
 
   const saveProject = useProjectStore((s) => s.saveProject)
   const loadProject = useProjectStore((s) => s.loadProject)
+  const uniformPlace = useProjectStore((s) => s.uniformPlace)
+  const editor = useProjectStore((s) => s.editor)
+  const points = useProjectStore((s) => s.points)
+  const pointCount = useProjectStore((s) => s.pointCount)
+  const setPointCount = useProjectStore((s) => s.setPointCount)
+
+  const switchTool = useCallback((toolId: string) => {
+    setActiveTool(toolId)
+    if (editor) {
+      editor.setCurrentTool(toolId)
+    }
+  }, [editor])
 
   const handleSave = () => {
     saveProjectToFile(saveProject())
@@ -30,22 +37,31 @@ export default function Layout() {
     loadProjectFromFile().then((data) => loadProject(data))
   }
 
-  const handleExport = async (format: 'svg' | 'png', scale?: number) => {
+  const handleExportSVG = () => {
     const svgEl = document.querySelector('.tl-svg-context') as SVGSVGElement | null
     if (!svgEl) {
       alert('未找到画布 SVG 元素')
       return
     }
 
-    if (format === 'svg') {
-      const svgString = exportToSVG(svgEl)
-      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
-      downloadBlob(blob, 'layout.svg')
-    } else {
-      const blob = await exportToPNG(svgEl, scale)
-      downloadBlob(blob, 'layout.png')
+    const svgString = exportToSVG(svgEl)
+    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+    downloadBlob(blob, 'layout.svg')
+  }
+
+  const handleExportPNG = async () => {
+    const svgEl = document.querySelector('.tl-svg-context') as SVGSVGElement | null
+    if (!svgEl) {
+      alert('未找到画布 SVG 元素')
+      return
     }
-    setShowExport(false)
+
+    try {
+      const blob = await exportToPNG(svgEl, 2)
+      downloadBlob(blob, 'layout.png')
+    } catch (err) {
+      alert('导出PNG失败')
+    }
   }
 
   return (
@@ -57,21 +73,31 @@ export default function Layout() {
           <button className="hover:text-gray-800" onClick={() => setShowNewProject(true)}>新建</button>
           <button className="hover:text-gray-800" onClick={handleSave}>保存</button>
           <button className="hover:text-gray-800" onClick={handleOpen}>打开</button>
-          <button className="hover:text-gray-800" onClick={() => setShowAutoPlace(true)}>自动布点</button>
-          <button className="hover:text-gray-800" onClick={() => setShowExport(true)}>导出</button>
-          <button className="hover:text-gray-800">编辑</button>
-          <button className="hover:text-gray-800">视图</button>
-          <button className="hover:text-gray-800">帮助</button>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={pointCount}
+              onChange={(e) => setPointCount(Number(e.target.value))}
+              className="w-14 border rounded px-1 py-0.5 text-sm text-center"
+            />
+            <button className="hover:text-gray-800 font-medium text-blue-600" onClick={uniformPlace}>均匀布点</button>
+          </div>
+          <button className="hover:text-gray-800" onClick={handleExportSVG}>导出SVG</button>
+          <button className="hover:text-gray-800" onClick={handleExportPNG}>导出PNG</button>
+          <button className="hover:text-gray-800" onClick={() => editor?.undo()}>撤回</button>
         </nav>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left toolbar */}
         <aside className="w-12 bg-gray-50 border-r border-gray-200 flex flex-col items-center py-2 gap-1">
-          <ToolButton icon="↖" label="选择" active={activeTool === 'select'} onClick={() => setActiveTool('select')} />
-          <ToolButton icon="+" label="添加点位" active={activeTool === 'probe-point'} onClick={() => setActiveTool('probe-point')} />
-          <ToolButton icon="T" label="文字" active={activeTool === 'text'} onClick={() => setActiveTool('text')} />
-          <ToolButton icon="↔" label="尺寸" active={activeTool === 'dimension'} onClick={() => setActiveTool('dimension')} />
+          <ToolButton icon="↖" label="选择" active={activeTool === 'select'} onClick={() => switchTool('select')} />
+          <ToolButton icon="+" label="添加点位" active={activeTool === 'probe-point'} onClick={() => switchTool('probe-point')} />
+          <ToolButton icon="D" label="排水口" active={activeTool === 'drain-port'} onClick={() => switchTool('drain-port')} />
+          <ToolButton icon="B" label="自带探头" active={activeTool === 'built-in-probe'} onClick={() => switchTool('built-in-probe')} />
+          <ToolButton icon="T" label="文字" active={activeTool === 'text'} onClick={() => switchTool('text')} />
         </aside>
 
         {/* Canvas */}
@@ -83,11 +109,9 @@ export default function Layout() {
         {/* Right panel */}
         <aside className="w-64 bg-white border-l border-gray-200 overflow-y-auto">
           <div className="flex border-b border-gray-200">
-            <TabButton label="属性" active={activeTab === 'properties'} onClick={() => setActiveTab('properties')} />
             <TabButton label="点位" active={activeTab === 'points'} onClick={() => setActiveTab('points')} />
             <TabButton label="模板" active={activeTab === 'templates'} onClick={() => setActiveTab('templates')} />
           </div>
-          {activeTab === 'properties' && <PropertiesPanel />}
           {activeTab === 'points' && <PointListPanel />}
           {activeTab === 'templates' && <TemplatePanel />}
         </aside>
@@ -95,13 +119,9 @@ export default function Layout() {
 
       {/* Status bar */}
       <footer className="h-6 bg-gray-50 border-t border-gray-200 flex items-center px-4 text-xs text-gray-400 gap-4">
-        <span>缩放: 100%</span>
-        <span>点位: 0</span>
-        <span>Z层: 400mm</span>
+        <span>点位: {points.length}</span>
       </footer>
       <NewProjectDialog open={showNewProject} onClose={() => setShowNewProject(false)} />
-      <AutoPlaceDialog open={showAutoPlace} onClose={() => setShowAutoPlace(false)} />
-      <ExportDialog open={showExport} onClose={() => setShowExport(false)} onExport={handleExport} />
     </div>
   )
 }

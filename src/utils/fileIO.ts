@@ -28,6 +28,9 @@ export function loadProjectFromFile(): Promise<ProjectData> {
       addToRecent(data)
       resolve(data)
     }
+    input.oncancel = () => {
+      reject(new Error('File selection cancelled'))
+    }
     input.click()
   })
 }
