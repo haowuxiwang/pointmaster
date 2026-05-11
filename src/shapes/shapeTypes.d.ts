@@ -12,5 +12,7 @@ declare module '@tldraw/tlschema' {
     'text-annotation': { w: number; h: number; content: string; fontSize: number }
     dimension: { w: number; h: number; from: import('@/types').Point3D; to: import('@/types').Point3D; label: string }
     legend: { w: number; h: number; title: string; entries: LegendEntry[] }
+    'drain-port': { w: number; h: number; label: string }
+    'built-in-probe': { w: number; h: number; label: string }
   }
 }
