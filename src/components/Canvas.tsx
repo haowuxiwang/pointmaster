@@ -101,13 +101,13 @@ function EditorSync() {
         const { x: cx, y: cy } = chamberPosRef.current
         const relX = shape.x - cx
         const relY = shape.y - cy
-        const currentZLevel = useProjectStore.getState().currentZLevel
-        const pos3D = unproject2Dto3D(relX, relY, currentZLevel, CHAMBER_SCALE)
+        const pointZ = shape.props?.pointData?.position?.z ?? useProjectStore.getState().currentZLevel
+        const pos3D = unproject2Dto3D(relX, relY, pointZ, CHAMBER_SCALE)
 
         pendingUpdates.current.set(label, {
           x: Math.max(0, pos3D.x),
           y: Math.max(0, pos3D.y),
-          z: currentZLevel,
+          z: pointZ,
         })
 
         if (!rafId.current) {

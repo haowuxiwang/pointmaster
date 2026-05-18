@@ -9,7 +9,7 @@ export default function ZSlider() {
 
   return (
     <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-white rounded-lg shadow-md p-2 z-10">
-      <span className="text-xs text-gray-500 mb-1">Z层</span>
+      <span className="text-xs text-gray-500 mb-1" title="控制点位放置的高度（mm）">高度层</span>
       <input
         type="range"
         min={0}

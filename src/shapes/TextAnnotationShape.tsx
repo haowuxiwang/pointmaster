@@ -31,7 +31,7 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
     return new Rectangle2d({
       width: shape.props.w,
       height: computedHeight,
-      isFilled: false,
+      isFilled: true,
     })
   }
 

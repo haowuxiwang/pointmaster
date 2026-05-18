@@ -1,5 +1,6 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Rectangle2d } from 'tldraw'
 import { cuboidPath, cylinderPath } from './utils'
+import { project3Dto2D, CHAMBER_SCALE } from '@/core/projection/isometric'
 import type { Chamber } from '@/types'
 
 type ChamberShape = TLBaseShape<'chamber', {
@@ -34,9 +35,23 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
   }
 
   getGeometry(shape: ChamberShape) {
+    const { width, depth, height } = shape.props.chamberData.dimensions
+    const p = (x: number, y: number, z: number) => project3Dto2D(x, y, z, CHAMBER_SCALE)
+    const vertices = [
+      p(0, 0, 0), p(width, 0, 0), p(width, depth, 0), p(0, depth, 0),
+      p(0, 0, height), p(width, 0, height), p(width, depth, height), p(0, depth, height),
+    ]
+    const xs = vertices.map(v => v.x)
+    const ys = vertices.map(v => v.y)
+    const minX = Math.min(...xs) - 20
+    const minY = Math.min(...ys) - 30
+    const maxX = Math.max(...xs) + 20
+    const maxY = Math.max(...ys) + 20
     return new Rectangle2d({
-      width: shape.props.w,
-      height: shape.props.h,
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
       isFilled: true,
     })
   }
