@@ -14,6 +14,19 @@ export default function PointListPanel() {
   const handleConfirmEdit = () => {
     if (editingLabel && editValue && editingLabel !== editValue) {
       updatePoint(editingLabel, { label: editValue })
+      // Sync label change to canvas shape
+      if (editor) {
+        const shape = editor.getCurrentPageShapes().find(
+          (s) => s.type === 'probe-point' && (s.props as any).pointData?.label === editingLabel
+        )
+        if (shape) {
+          editor.updateShape({
+            id: shape.id,
+            type: shape.type as any,
+            props: { pointData: { ...(shape.props as any).pointData, label: editValue } },
+          })
+        }
+      }
     }
     setEditingLabel(null)
   }

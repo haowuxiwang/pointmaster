@@ -15,6 +15,7 @@ export function uniformPlacement(
   const ventPorts = chamber.ventPorts ?? [];
 
   // Helper: re-label all points sequentially as T1, T2, T3...
+  // Note: intermediate labels (C/K prefixes) below are overwritten by relabel before return.
   const relabel = (pts: ProbePointData[]): ProbePointData[] =>
     pts.map((p, i) => ({ ...p, label: `T${i + 1}` }));
 

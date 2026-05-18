@@ -125,6 +125,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         }
       }
     }
+    // Add vent ports from chamber data
+    const ventPorts = chamber.ventPorts ?? [];
+    ventPorts.forEach((pos, i) => {
+      extraFixedPoints.push({ position: pos, label: `排气口${i + 1}`, type: 'vent-port' });
+    });
 
     let newPoints: ProbePointData[] = uniformPlacement(chamber, params.totalCount ?? 12, extraFixedPoints);
     set({ points: newPoints });
@@ -160,7 +165,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       // Generate placement description
       const existingDesc = editor.getCurrentPageShapes().find(s => s.id === createShapeId('placement-desc'))
       if (existingDesc) editor.deleteShapes([existingDesc.id])
-      const description = generatePlacementDescription(chamber, newPoints)
+      const description = generatePlacementDescription(chamber, newPoints, extraFixedPoints)
       const descId = createShapeId('placement-desc')
       const descChamber = editor.getShape(chamberShapeId)
       editor.createShape({
@@ -208,6 +213,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           }
         }
       }
+      // Add vent ports from chamber data
+      const ventPorts = chamber.ventPorts ?? [];
+      ventPorts.forEach((pos, i) => {
+        fixedShapes.push({ position: pos, label: `排气口${i + 1}`, type: 'vent-port' });
+      });
 
       newPoints.forEach((point, index) => {
         const projected = project3Dto2D(point.position.x, point.position.y, point.position.z, CHAMBER_SCALE);
