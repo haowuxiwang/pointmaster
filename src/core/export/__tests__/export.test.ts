@@ -79,6 +79,7 @@ describe('exportToPNG', () => {
       format: 'png',
       pixelRatio: 3,
       background: true,
+      padding: 60,
     })
   })
 })

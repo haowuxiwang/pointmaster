@@ -9,7 +9,7 @@ export async function exportToSVG(editor: Editor): Promise<string> {
     throw new Error('No shapes to export')
   }
 
-  const result = await editor.getSvgString(shapes, { background: true })
+  const result = await editor.getSvgString(shapes, { background: true, padding: 60 })
   if (!result) {
     throw new Error('Failed to generate SVG')
   }
