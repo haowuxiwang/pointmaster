@@ -14,6 +14,10 @@ export function uniformPlacement(
   const { width, depth, height, layers = 1 } = chamber.dimensions;
   const ventPorts = chamber.ventPorts ?? [];
 
+  // Helper: re-label all points sequentially as T1, T2, T3...
+  const relabel = (pts: ProbePointData[]): ProbePointData[] =>
+    pts.map((p, i) => ({ ...p, label: `T${i + 1}` }));
+
   // Generate points for vent ports (cold points)
   const ventPoints: ProbePointData[] = ventPorts.map((pos, i) => ({
     label: `C${i + 1}`,
@@ -105,12 +109,12 @@ export function uniformPlacement(
       }
     }
 
-    return [...ventPoints, ...extraPoints, ...keyPoints, ...points];
+    return relabel([...ventPoints, ...extraPoints, ...keyPoints, ...points]);
   }
 
   // Single layer placement
   if (remainingCount <= 0) {
-    return [...ventPoints, ...extraPoints, ...keyPoints];
+    return relabel([...ventPoints, ...extraPoints, ...keyPoints]);
   }
 
   const total = width + depth + height;
@@ -141,5 +145,5 @@ export function uniformPlacement(
       }
     }
   }
-  return [...ventPoints, ...extraPoints, ...keyPoints, ...points];
+  return relabel([...ventPoints, ...extraPoints, ...keyPoints, ...points]);
 }
