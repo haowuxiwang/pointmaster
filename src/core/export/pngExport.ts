@@ -13,7 +13,7 @@ export async function exportToPNG(editor: Editor, scale: number = 2): Promise<Bl
     format: 'png',
     pixelRatio: scale,
     background: true,
-    padding: 60,
+    padding: 200,
   })
 
   return result.blob
