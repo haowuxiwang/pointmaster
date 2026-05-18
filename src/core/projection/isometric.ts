@@ -6,6 +6,9 @@ export const ISO_ANGLE = Math.PI / 6;
 /** 默认缩放因子 */
 export const DEFAULT_SCALE = 0.5;
 
+/** Chamber rendering scale used by ChamberShape and coordinate bridging */
+export const CHAMBER_SCALE = 0.2;
+
 const cosA = Math.cos(ISO_ANGLE);
 const sinA = Math.sin(ISO_ANGLE);
 
@@ -51,4 +54,21 @@ export function projectPoints(
   scale: number = DEFAULT_SCALE
 ): Point2D[] {
   return points3D.map(p => project3Dto2D(p.x, p.y, p.z, scale));
+}
+
+/**
+ * Project a 3D circle (in XY plane) to an SVG ellipse under isometric projection.
+ * Returns center, rx, ry for SVG ellipse/arc commands.
+ */
+export function projectEllipse(
+  cx3d: number,
+  cy3d: number,
+  z: number,
+  radius: number,
+  scale: number = DEFAULT_SCALE
+): { cx: number; cy: number; rx: number; ry: number } {
+  const center = project3Dto2D(cx3d, cy3d, z, scale);
+  const rx = radius * Math.SQRT2 * cosA * scale;
+  const ry = radius * Math.SQRT2 * sinA * scale;
+  return { cx: center.x, cy: center.y, rx, ry };
 }

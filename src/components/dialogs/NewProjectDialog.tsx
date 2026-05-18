@@ -21,6 +21,7 @@ export default function NewProjectDialog({ open, onClose }: Props) {
   const [depth, setDepth] = useState(600)
   const [height, setHeight] = useState(800)
   const [radius, setRadius] = useState(150)
+  const [layers, setLayers] = useState(1)
 
   if (!open) return null
 
@@ -35,7 +36,7 @@ export default function NewProjectDialog({ open, onClose }: Props) {
     setChamber({
       type: shape,
       name: name.trim(),
-      dimensions: { width, depth, height },
+      dimensions: { width, depth, height, layers },
       ...(shape === 'cylinder' ? { radius } : {}),
     })
     onClose()
@@ -120,6 +121,17 @@ export default function NewProjectDialog({ open, onClose }: Props) {
                   <label className="block text-sm text-gray-600 mb-1">高度 (mm)</label>
                   <input type="number" value={height} onChange={(e) => setHeight(+e.target.value)} className="w-full border rounded px-3 py-1.5 text-sm" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">层数</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={layers}
+                  onChange={(e) => setLayers(Math.max(1, Math.min(10, +e.target.value)))}
+                  className="w-full border rounded px-3 py-1.5 text-sm"
+                />
               </div>
               {shape === 'cylinder' && (
                 <div>

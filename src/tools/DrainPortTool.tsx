@@ -1,5 +1,6 @@
 import { StateNode, createShapeId } from 'tldraw'
 import type { TLPointerEventInfo, TLStateNodeConstructor } from 'tldraw'
+import { pagePointToChamber3D } from './coordBridge'
 
 class Idle extends StateNode {
   static override id = 'idle'
@@ -30,24 +31,34 @@ class Pointing extends StateNode {
       .filter((s) => s.type === 'drain-port')
     let maxNum = 0
     for (const shape of existing) {
-      const match = shape.props.label?.match(/^D(\d+)$/)
+      const match = shape.props.label?.match(/^排水口(\d*)$/)
       if (match) {
-        maxNum = Math.max(maxNum, parseInt(match[1], 10))
+        const num = match[1] ? parseInt(match[1], 10) : 1
+        maxNum = Math.max(maxNum, num)
       }
     }
-    const label = `D${maxNum + 1}`
+    const label = maxNum === 0 ? '排水口' : `排水口${maxNum + 1}`
+
+    const pos3D = pagePointToChamber3D(editor, point.x, point.y)
+    const chamberShape = editor.getCurrentPageShapes().find((s) => s.type === 'chamber')
 
     const id = createShapeId()
     editor.markHistoryStoppingPoint(`creating_drain_port:${id}`)
     editor.createShape({
       id,
       type: 'drain-port',
-      x: point.x,
-      y: point.y,
+      parentId: chamberShape?.id,
+      x: point.x - (chamberShape?.x ?? 0),
+      y: point.y - (chamberShape?.y ?? 0),
       props: {
         w: 30,
         h: 30,
         label,
+        pointData: {
+          label,
+          position: pos3D,
+          properties: {},
+        },
       },
     })
 
@@ -68,16 +79,13 @@ class Pointing extends StateNode {
   }
 
   private complete() {
-    if (this.editor.getInstanceState().isToolLocked) {
-      this.parent.transition('idle')
-    } else {
-      this.editor.setCurrentTool('select')
-    }
+    // Stay in tool for continuous placement
+    this.parent.transition('idle')
   }
 
   private cancel() {
     this.editor.bail()
-    this.parent.transition('idle')
+    this.editor.setCurrentTool('select')
   }
 }
 

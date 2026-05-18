@@ -17,6 +17,10 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     chamberData: T.any as T.Validator<Chamber>,
   }
 
+  override canEdit() {
+    return true
+  }
+
   getDefaultProps(): ChamberShape['props'] {
     return {
       w: 800,
@@ -33,55 +37,207 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     return new Rectangle2d({
       width: shape.props.w,
       height: shape.props.h,
-      isFilled: false,
+      isFilled: true,
     })
   }
 
   component(shape: ChamberShape) {
     const { chamberData } = shape.props
+    const isEditing = this.editor.getEditingShapeId() === shape.id
     const { type, dimensions } = chamberData
     const { width, depth, height, layers = 1 } = dimensions
 
-    let outlinePath: string
-    let layerPath: string
+    let faces: { path: string; fill: string }[] = []
+    let edgesPath: string = ''
+    let layerPath: string = ''
+    let detailsPath: string = ''
+    let headPath: string = ''
+    let supportsPath: string = ''
+    let nozzlesPath: string = ''
+    let nozzleLabels: Array<{ x: number; y: number; name: string }> = []
+    let coilPath: string = ''
+    let frontFill: string = ''
+    let topFill: string = ''
+    let bottomBackArc: string = ''
+    let bottomFrontArc: string = ''
+    let sideLines: string = ''
+    let topEllipse: string = ''
+    let isCylinder = false
+
     if (type === 'cylinder') {
+      isCylinder = true
       const radius = chamberData.radius ?? Math.min(width, depth) / 2
-      const result = cylinderPath(radius, height, 16, 0.2, layers)
-      outlinePath = result.outline
+      const result = cylinderPath(radius, height, 0.2, layers, chamberData.nozzles, chamberData.hasCoil)
+      topEllipse = result.topEllipse
+      bottomBackArc = result.bottomBackArc
+      bottomFrontArc = result.bottomFrontArc
+      sideLines = result.sideLines
+      frontFill = result.frontFill
+      topFill = result.topFill
       layerPath = result.layers
+      headPath = result.headPath
+      supportsPath = result.supportsPath
+      nozzlesPath = result.nozzlesPath
+      nozzleLabels = result.nozzleLabels
+      coilPath = result.coilPath
     } else if (type === 'polygon' && chamberData.vertices) {
-      // TODO: Implement proper polygon rendering with isometric projection
-      // For now, render as cuboid fallback
       const result = cuboidPath(width, depth, height, 0.2, layers)
-      outlinePath = result.outline
+      faces = result.faces
+      edgesPath = result.edges
       layerPath = result.layers
     } else {
       const result = cuboidPath(width, depth, height, 0.2, layers)
-      outlinePath = result.outline
+      faces = result.faces
+      edgesPath = result.edges
       layerPath = result.layers
+    }
+
+    const handleSave = (newName: string) => {
+      if (newName && newName !== chamberData.name) {
+        this.editor.updateShape<ChamberShape>({
+          id: shape.id,
+          type: 'chamber',
+          props: { chamberData: { ...shape.props.chamberData, name: newName } },
+        })
+      }
+      this.editor.setEditingShape(null)
+    }
+
+    const nameElement = isEditing ? (
+      <foreignObject x={-60} y={-26} width={120} height={20}>
+        <input
+          autoFocus
+          defaultValue={chamberData.name}
+          style={{
+            width: '100%',
+            fontSize: '12px',
+            color: '#000',
+            border: '1px solid #000',
+            borderRadius: '2px',
+            padding: '1px 2px',
+            outline: 'none',
+            background: 'white',
+            textAlign: 'center',
+          }}
+          onBlur={(e) => handleSave((e.target as HTMLInputElement).value.trim())}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave((e.target as HTMLInputElement).value.trim())
+            if (e.key === 'Escape') this.editor.setEditingShape(null)
+            e.stopPropagation()
+          }}
+        />
+      </foreignObject>
+    ) : (
+      <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">
+        {chamberData.name}
+      </text>
+    )
+
+    if (isCylinder) {
+      return (
+        <SVGContainer>
+          <defs>
+            <linearGradient id="cylinderBody" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#d8d8d8" />
+              <stop offset="35%" stopColor="#f0f0f0" />
+              <stop offset="65%" stopColor="#e0e0e0" />
+              <stop offset="100%" stopColor="#b8b8b8" />
+            </linearGradient>
+            <linearGradient id="cylinderTop" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f5f5f5" />
+              <stop offset="100%" stopColor="#e0e0e0" />
+            </linearGradient>
+          </defs>
+
+          {/* Back half of bottom ellipse (hidden line) */}
+          <path d={bottomBackArc} fill="none" stroke="#999" strokeWidth={0.8} strokeDasharray="4 2" />
+
+          {/* Front face fill (curved body) */}
+          <path d={frontFill} fill="url(#cylinderBody)" stroke="none" />
+
+          {/* Top face fill */}
+          <path d={topFill} fill="url(#cylinderTop)" stroke="none" />
+
+          {/* Layer ellipses */}
+          {layerPath && (
+            <path d={layerPath} fill="none" stroke="#999" strokeWidth={1.5} strokeDasharray="6 3" />
+          )}
+
+          {/* Front half of bottom ellipse */}
+          <path d={bottomFrontArc} fill="none" stroke="#000" strokeWidth={1.2} />
+
+          {/* Top ellipse */}
+          <path d={topEllipse} fill="none" stroke="#000" strokeWidth={1.2} />
+
+          {/* Side silhouette lines */}
+          <path d={sideLines} fill="none" stroke="#000" strokeWidth={1} />
+
+          {/* Dished head */}
+          {headPath && (
+            <path d={headPath} fill="none" stroke="#555" strokeWidth={0.8} />
+          )}
+
+          {/* Support legs */}
+          {supportsPath && (
+            <path d={supportsPath} fill="none" stroke="#555" strokeWidth={0.8} />
+          )}
+
+          {/* Nozzles */}
+          {nozzlesPath && (
+            <path d={nozzlesPath} fill="none" stroke="#555" strokeWidth={0.8} />
+          )}
+
+          {/* Coil */}
+          {coilPath && (
+            <path d={coilPath} fill="none" stroke="#aaa" strokeWidth={0.6} strokeDasharray="3 2" />
+          )}
+
+          {/* Nozzle labels */}
+          {nozzleLabels.map((nl, i) => (
+            <text key={i} x={nl.x} y={nl.y - 8} fontSize={8} fill="#555" textAnchor="middle">
+              {nl.name}
+            </text>
+          ))}
+
+          {nameElement}
+        </SVGContainer>
+      )
     }
 
     return (
       <SVGContainer>
+        {/* Face fills */}
+        {faces.map((face, i) => (
+          <path key={i} d={face.path} fill={face.fill} stroke="none" />
+        ))}
+        {/* Layer lines */}
+        {layerPath && (
+          <path
+            d={layerPath}
+            fill="none"
+            stroke="#999"
+            strokeWidth={1.5}
+            strokeDasharray="6 3"
+          />
+        )}
+        {/* Edges */}
         <path
-          d={outlinePath}
+          d={edgesPath}
           fill="none"
           stroke="#000"
           strokeWidth={1}
           strokeLinejoin="round"
         />
-        {layerPath && (
+        {/* Details (head, supports, nozzles) */}
+        {detailsPath && (
           <path
-            d={layerPath}
+            d={detailsPath}
             fill="none"
-            stroke="#ccc"
-            strokeWidth={0.5}
-            strokeDasharray="4 2"
+            stroke="#555"
+            strokeWidth={0.8}
           />
         )}
-        <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">
-          {chamberData.name}
-        </text>
+        {nameElement}
       </SVGContainer>
     )
   }

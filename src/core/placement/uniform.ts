@@ -1,6 +1,16 @@
 import { Chamber, ProbePointData, Point3D } from '@/types';
 
-export function uniformPlacement(chamber: Chamber, totalCount: number): ProbePointData[] {
+interface ExtraFixedPoint {
+  position: Point3D;
+  label: string;
+  type: string;
+}
+
+export function uniformPlacement(
+  chamber: Chamber,
+  totalCount: number,
+  extraFixedPoints: ExtraFixedPoint[] = []
+): ProbePointData[] {
   const { width, depth, height, layers = 1 } = chamber.dimensions;
   const ventPorts = chamber.ventPorts ?? [];
 
@@ -11,16 +21,24 @@ export function uniformPlacement(chamber: Chamber, totalCount: number): ProbePoi
     properties: { type: 'vent-port' },
   }));
 
-  // Corner points for cuboid
+  // Generate points for extra fixed points (drain ports, inlet ports from canvas)
+  const extraPoints: ProbePointData[] = extraFixedPoints.map((fp) => ({
+    label: fp.label,
+    position: fp.position,
+    properties: { type: fp.type },
+  }));
+
+  // Corner points for cuboid (inset 5% from edges - closer to edges for better coverage)
+  const inset = 0.05;
   const cornerPositions: Point3D[] = [
-    { x: 0, y: 0, z: 0 },
-    { x: width, y: 0, z: 0 },
-    { x: 0, y: depth, z: 0 },
-    { x: width, y: depth, z: 0 },
-    { x: 0, y: 0, z: height },
-    { x: width, y: 0, z: height },
-    { x: 0, y: depth, z: height },
-    { x: width, y: depth, z: height },
+    { x: width * inset, y: depth * inset, z: height * inset },
+    { x: width * (1 - inset), y: depth * inset, z: height * inset },
+    { x: width * inset, y: depth * (1 - inset), z: height * inset },
+    { x: width * (1 - inset), y: depth * (1 - inset), z: height * inset },
+    { x: width * inset, y: depth * inset, z: height * (1 - inset) },
+    { x: width * (1 - inset), y: depth * inset, z: height * (1 - inset) },
+    { x: width * inset, y: depth * (1 - inset), z: height * (1 - inset) },
+    { x: width * (1 - inset), y: depth * (1 - inset), z: height * (1 - inset) },
   ];
 
   // Center point
@@ -42,7 +60,14 @@ export function uniformPlacement(chamber: Chamber, totalCount: number): ProbePoi
   });
 
   // Remaining points for uniform distribution
-  const remainingCount = Math.max(0, totalCount - keyPoints.length - ventPoints.length);
+  const remainingCount = Math.max(0, totalCount - keyPoints.length - ventPoints.length - extraPoints.length);
+
+  // Helper function to calculate position along axis (with 5% inset from edges)
+  const calcPosition = (index: number, count: number, size: number): number => {
+    if (count <= 1) return size / 2; // Single point goes to center
+    const inset = size * 0.05; // 5% inset from edges
+    return inset + (index / (count - 1)) * (size - 2 * inset);
+  };
 
   if (layers > 1) {
     // Per-layer placement
@@ -69,8 +94,8 @@ export function uniformPlacement(chamber: Chamber, totalCount: number): ProbePoi
           points.push({
             label: `T${globalIndex}`,
             position: {
-              x: width * (ix + 1) / (nx + 1),
-              y: depth * (iy + 1) / (ny + 1),
+              x: calcPosition(ix, nx, width),
+              y: calcPosition(iy, ny, depth),
               z: layerZ,
             },
             properties: {},
@@ -80,12 +105,12 @@ export function uniformPlacement(chamber: Chamber, totalCount: number): ProbePoi
       }
     }
 
-    return [...ventPoints, ...keyPoints, ...points];
+    return [...ventPoints, ...extraPoints, ...keyPoints, ...points];
   }
 
   // Single layer placement
   if (remainingCount <= 0) {
-    return [...ventPoints, ...keyPoints];
+    return [...ventPoints, ...extraPoints, ...keyPoints];
   }
 
   const total = width + depth + height;
@@ -105,12 +130,16 @@ export function uniformPlacement(chamber: Chamber, totalCount: number): ProbePoi
       for (let ix = 0; ix < nx; ix++) {
         points.push({
           label: `T${index}`,
-          position: { x: width*(ix+1)/(nx+1), y: depth*(iy+1)/(ny+1), z: height*(iz+1)/(nz+1) },
+          position: {
+            x: calcPosition(ix, nx, width),
+            y: calcPosition(iy, ny, depth),
+            z: calcPosition(iz, nz, height),
+          },
           properties: {},
         });
         index++;
       }
     }
   }
-  return [...ventPoints, ...keyPoints, ...points];
+  return [...ventPoints, ...extraPoints, ...keyPoints, ...points];
 }

@@ -7,9 +7,12 @@ export function keypointsPlacement(chamber: Chamber, options: { includeCenter?: 
   let index = 1;
   const add = (pos: Point3D) => { points.push({ label: `T${index}`, position: pos, properties: {} }); index++; };
 
-  // 8 corners
-  add({x:0,y:0,z:0}); add({x:w,y:0,z:0}); add({x:w,y:d,z:0}); add({x:0,y:d,z:0});
-  add({x:0,y:0,z:h}); add({x:w,y:0,z:h}); add({x:w,y:d,z:h}); add({x:0,y:d,z:h});
+  // 8 corners (inset 10% from edges)
+  const inset = 0.1;
+  add({x:w*inset,y:d*inset,z:h*inset}); add({x:w*(1-inset),y:d*inset,z:h*inset});
+  add({x:w*(1-inset),y:d*(1-inset),z:h*inset}); add({x:w*inset,y:d*(1-inset),z:h*inset});
+  add({x:w*inset,y:d*inset,z:h*(1-inset)}); add({x:w*(1-inset),y:d*inset,z:h*(1-inset)});
+  add({x:w*(1-inset),y:d*(1-inset),z:h*(1-inset)}); add({x:w*inset,y:d*(1-inset),z:h*(1-inset)});
 
   if (includeCenter) add({x:w/2,y:d/2,z:h/2});
   if (includeFaceCenters) {

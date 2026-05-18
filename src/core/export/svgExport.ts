@@ -1,10 +1,18 @@
-export function exportToSVG(svgElement: SVGSVGElement): string {
-  const clone = svgElement.cloneNode(true) as SVGSVGElement
-  // Remove interactive elements
-  clone.querySelectorAll('[data-testid]').forEach((el) => el.remove())
-  clone.querySelectorAll('.tl-selection-aux').forEach((el) => el.remove())
-  clone.querySelectorAll('.tl-overlays').forEach((el) => el.remove())
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-  clone.setAttribute('font-family', 'Arial, sans-serif')
-  return new XMLSerializer().serializeToString(clone)
+import type { Editor } from 'tldraw'
+
+export async function exportToSVG(editor: Editor): Promise<string> {
+  // Exit editing mode to avoid foreignObject issues in export
+  editor.setEditingShape(null)
+
+  const shapes = editor.getCurrentPageShapes()
+  if (shapes.length === 0) {
+    throw new Error('No shapes to export')
+  }
+
+  const result = await editor.getSvgString(shapes, { background: true })
+  if (!result) {
+    throw new Error('Failed to generate SVG')
+  }
+
+  return result.svg
 }

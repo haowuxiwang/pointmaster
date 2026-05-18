@@ -66,4 +66,48 @@ export const builtinTemplates: EquipmentTemplate[] = [
     chamber: { type: 'cuboid', name: '烘箱', dimensions: { width: 800, depth: 600, height: 500, layers: 2 } },
     defaultPointCount: 9,
   },
+  {
+    id: 'refrigerator',
+    name: '冰箱/冷藏柜',
+    category: '冷藏设备',
+    chamber: { type: 'cuboid', name: '冰箱', dimensions: { width: 800, depth: 600, height: 1200, layers: 3 } },
+    defaultPointCount: 10,
+  },
+  {
+    id: 'seed-tank',
+    name: '种子罐',
+    category: '发酵罐',
+    chamber: {
+      type: 'cylinder',
+      name: '种子罐',
+      dimensions: { width: 610, depth: 610, height: 2000, layers: 2 },
+      radius: 305,
+      nozzles: [
+        { name: '压缩空气', position: { x: 305, y: 0, z: 1800 } },
+        { name: '排汽', position: { x: 305, y: 305, z: 1900 } },
+        { name: '排污', position: { x: 305, y: 305, z: 100 } },
+        { name: '接种口', position: { x: 0, y: 305, z: 1500 } },
+      ],
+    },
+    defaultPointCount: 12,
+  },
+  {
+    id: 'fermenter-3stage',
+    name: '三级发酵罐',
+    category: '发酵罐',
+    chamber: {
+      type: 'cylinder',
+      name: '三级发酵罐',
+      dimensions: { width: 700, depth: 700, height: 2500, layers: 3 },
+      radius: 350,
+      nozzles: [
+        { name: '压缩空气', position: { x: 350, y: 0, z: 2200 } },
+        { name: '排汽', position: { x: 350, y: 350, z: 2400 } },
+        { name: '排污', position: { x: 350, y: 350, z: 100 } },
+        { name: '接种口', position: { x: 0, y: 350, z: 1800 } },
+      ],
+      hasCoil: true,
+    },
+    defaultPointCount: 12,
+  },
 ]

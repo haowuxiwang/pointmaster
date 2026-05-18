@@ -22,6 +22,12 @@ export interface ChamberDimensions {
   layers?: number; // 层数，默认1
 }
 
+/** 管口定义 */
+export interface Nozzle {
+  name: string;       // e.g. '压缩空气', '排汽'
+  position: Point3D;  // 3D position on the vessel
+}
+
 /** 腔室定义 */
 export interface Chamber {
   type: ChamberType;
@@ -30,6 +36,8 @@ export interface Chamber {
   radius?: number;
   vertices?: Point2D[];
   ventPorts?: Point3D[];  // 排气口/冷点位置
+  nozzles?: Nozzle[];
+  hasCoil?: boolean;
 }
 
 /** 探头点位 */
@@ -80,13 +88,13 @@ export interface EquipmentTemplate {
 }
 
 /** 自动布点模式 */
-export type PlacementMode = 'grid' | 'uniform' | 'keypoints' | 'mixed';
+export type PlacementMode = 'uniform';
 
 /** 自动布点参数 */
 export interface PlacementParams {
   mode: PlacementMode;
-  gridCounts?: { x: number; y: number; z: number };
   totalCount?: number;
   includeCenter?: boolean;
-  includeFaceCenters?: boolean;
+  includeDrainPorts?: boolean;
+  includeInletPorts?: boolean;
 }

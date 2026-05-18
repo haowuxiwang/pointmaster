@@ -28,24 +28,25 @@ class Pointing extends StateNode {
     // Find max existing label number
     const existing = editor
       .getCurrentPageShapes()
-      .filter((s) => s.type === 'built-in-probe')
+      .filter((s) => s.type === 'inlet-port')
     let maxNum = 0
     for (const shape of existing) {
-      const match = shape.props.label?.match(/^自带探头(\d+)$/)
+      const match = shape.props.label?.match(/^进气口(\d*)$/)
       if (match) {
-        maxNum = Math.max(maxNum, parseInt(match[1], 10))
+        const num = match[1] ? parseInt(match[1], 10) : 1
+        maxNum = Math.max(maxNum, num)
       }
     }
-    const label = `自带探头${maxNum + 1}`
+    const label = maxNum === 0 ? '进气口' : `进气口${maxNum + 1}`
 
     const pos3D = pagePointToChamber3D(editor, point.x, point.y)
     const chamberShape = editor.getCurrentPageShapes().find((s) => s.type === 'chamber')
 
     const id = createShapeId()
-    editor.markHistoryStoppingPoint(`creating_built_in_probe:${id}`)
+    editor.markHistoryStoppingPoint(`creating_inlet_port:${id}`)
     editor.createShape({
       id,
-      type: 'built-in-probe',
+      type: 'inlet-port',
       parentId: chamberShape?.id,
       x: point.x - (chamberShape?.x ?? 0),
       y: point.y - (chamberShape?.y ?? 0),
@@ -88,8 +89,8 @@ class Pointing extends StateNode {
   }
 }
 
-export class BuiltInProbeTool extends StateNode {
-  static override id = 'built-in-probe'
+export class InletPortTool extends StateNode {
+  static override id = 'inlet-port'
   static override initial = 'idle'
   static override children(): TLStateNodeConstructor[] {
     return [Idle, Pointing]

@@ -1,5 +1,6 @@
 import { StateNode, createShapeId } from 'tldraw'
 import type { TLPointerEventInfo, TLStateNodeConstructor } from 'tldraw'
+import { pagePointToChamber3D } from './coordBridge'
 
 // ---- Idle state ----
 
@@ -43,19 +44,21 @@ class Pointing extends StateNode {
 
     const id = createShapeId()
     editor.markHistoryStoppingPoint(`creating_probe_point:${id}`)
+    const pos3D = pagePointToChamber3D(editor, point.x, point.y)
+    const chamberShape = editor.getCurrentPageShapes().find((s) => s.type === 'chamber')
+
     editor.createShape({
       id,
       type: 'probe-point',
-      x: point.x,
-      y: point.y,
+      parentId: chamberShape?.id,
+      x: point.x - (chamberShape?.x ?? 0),
+      y: point.y - (chamberShape?.y ?? 0),
       props: {
         w: 40,
         h: 40,
         pointData: {
           label,
-          // TODO: Derive 3D position from 2D canvas coordinates
-          // Currently using placeholder values; needs inverse isometric projection
-          position: { x: 0, y: 0, z: 0 },
+          position: pos3D,
           properties: {},
         },
       },
@@ -78,16 +81,13 @@ class Pointing extends StateNode {
   }
 
   private complete() {
-    if (this.editor.getInstanceState().isToolLocked) {
-      this.parent.transition('idle')
-    } else {
-      this.editor.setCurrentTool('select')
-    }
+    // Stay in tool for continuous placement
+    this.parent.transition('idle')
   }
 
   private cancel() {
     this.editor.bail()
-    this.parent.transition('idle')
+    this.editor.setCurrentTool('select')
   }
 }
 
