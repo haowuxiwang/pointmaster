@@ -9,6 +9,9 @@ type LegendShape = TLBaseShape<'legend', {
   entries: LegendEntry[]
 }>
 
+// Track editing values across renders (keyed by composite keys)
+const editingValues = new Map<string, string>()
+
 export class LegendShapeUtil extends ShapeUtil<LegendShape> {
   static type = 'legend' as const
 
@@ -21,6 +24,55 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
 
   override canEdit() {
     return true
+  }
+
+  override onEditEnd(shape: LegendShape) {
+    const updates: Partial<LegendShape['props']> = {}
+    let hasChanges = false
+
+    // Check title
+    const titleVal = editingValues.get(shape.id)
+    if (titleVal !== undefined && titleVal !== shape.props.title) {
+      updates.title = titleVal
+      hasChanges = true
+    }
+
+    // Check entries
+    let entriesChanged = false
+    const newEntries = shape.props.entries.map((entry, i) => {
+      const labelVal = editingValues.get(`${shape.id}:entry-${i}-label`)
+      const descVal = editingValues.get(`${shape.id}:entry-${i}-desc`)
+      const newEntry = { ...entry }
+      if (labelVal !== undefined && labelVal !== entry.label) {
+        newEntry.label = labelVal
+        entriesChanged = true
+      }
+      if (descVal !== undefined && descVal !== entry.description) {
+        newEntry.description = descVal
+        entriesChanged = true
+      }
+      return newEntry
+    })
+
+    if (entriesChanged) {
+      updates.entries = newEntries
+      hasChanges = true
+    }
+
+    // Clean up all cached values for this shape
+    editingValues.delete(shape.id)
+    for (let i = 0; i < shape.props.entries.length; i++) {
+      editingValues.delete(`${shape.id}:entry-${i}-label`)
+      editingValues.delete(`${shape.id}:entry-${i}-desc`)
+    }
+
+    if (hasChanges) {
+      this.editor.updateShape<LegendShape>({
+        id: shape.id,
+        type: 'legend',
+        props: updates,
+      })
+    }
   }
 
   getDefaultProps(): LegendShape['props'] {
@@ -83,30 +135,17 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
                   width: '100%',
                   boxSizing: 'border-box',
                 }}
-                onBlur={(e) => {
-                  const newTitle = (e.target as HTMLInputElement).value.trim()
-                  if (newTitle && newTitle !== title) {
-                    this.editor.updateShape<LegendShape>({
-                      id: shape.id,
-                      type: 'legend',
-                      props: { title: newTitle },
-                    })
-                  }
+                onInput={(e) => {
+                  editingValues.set(shape.id, (e.target as HTMLInputElement).value)
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    const newTitle = (e.target as HTMLInputElement).value.trim()
-                    if (newTitle && newTitle !== title) {
-                      this.editor.updateShape<LegendShape>({
-                        id: shape.id,
-                        type: 'legend',
-                        props: { title: newTitle },
-                      })
-                    }
                     this.editor.setEditingShape(null)
                   }
-                  if (e.key === 'Escape') this.editor.setEditingShape(null)
-                  e.stopPropagation()
+                  if (e.key === 'Escape') {
+                    editingValues.delete(shape.id)
+                    this.editor.setEditingShape(null)
+                  }
                 }}
               />
               {entries.map((entry, i) => (
@@ -124,22 +163,17 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
                       width: '40%',
                       boxSizing: 'border-box',
                     }}
-                    onBlur={(e) => {
-                      const newLabel = (e.target as HTMLInputElement).value.trim()
-                      if (newLabel && newLabel !== entry.label) {
-                        const newEntries = [...entries]
-                        newEntries[i] = { ...newEntries[i], label: newLabel }
-                        this.editor.updateShape<LegendShape>({
-                          id: shape.id,
-                          type: 'legend',
-                          props: { entries: newEntries },
-                        })
-                      }
+                    onInput={(e) => {
+                      editingValues.set(`${shape.id}:entry-${i}-label`, (e.target as HTMLInputElement).value)
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                      if (e.key === 'Escape') this.editor.setEditingShape(null)
-                      e.stopPropagation()
+                      if (e.key === 'Enter') {
+                        this.editor.setEditingShape(null)
+                      }
+                      if (e.key === 'Escape') {
+                        editingValues.delete(`${shape.id}:entry-${i}-label`)
+                        this.editor.setEditingShape(null)
+                      }
                     }}
                   />
                   <input
@@ -155,22 +189,17 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
                       flex: 1,
                       boxSizing: 'border-box',
                     }}
-                    onBlur={(e) => {
-                      const newDesc = (e.target as HTMLInputElement).value.trim()
-                      if (newDesc && newDesc !== entry.description) {
-                        const newEntries = [...entries]
-                        newEntries[i] = { ...newEntries[i], description: newDesc }
-                        this.editor.updateShape<LegendShape>({
-                          id: shape.id,
-                          type: 'legend',
-                          props: { entries: newEntries },
-                        })
-                      }
+                    onInput={(e) => {
+                      editingValues.set(`${shape.id}:entry-${i}-desc`, (e.target as HTMLInputElement).value)
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                      if (e.key === 'Escape') this.editor.setEditingShape(null)
-                      e.stopPropagation()
+                      if (e.key === 'Enter') {
+                        this.editor.setEditingShape(null)
+                      }
+                      if (e.key === 'Escape') {
+                        editingValues.delete(`${shape.id}:entry-${i}-desc`)
+                        this.editor.setEditingShape(null)
+                      }
                     }}
                   />
                 </div>
@@ -212,6 +241,23 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
           </text>
         ))}
       </SVGContainer>
+    )
+  }
+
+  toSvg(shape: LegendShape) {
+    const { entries, title, w } = shape.props
+    const padding = 12
+    const lineHeight = 20
+    return (
+      <g>
+        <rect x={0} y={0} width={w} height={shape.props.h} fill="white" stroke="#ccc" strokeWidth={1} rx={4} />
+        <text x={padding} y={padding + 12} fontSize={13} fontWeight="bold" fill="#333">{title}</text>
+        {entries.map((entry, i) => (
+          <text key={i} x={padding} y={padding + 32 + i * lineHeight} fontSize={11} fill="#555">
+            {entry.label} - {entry.description}
+          </text>
+        ))}
+      </g>
     )
   }
 

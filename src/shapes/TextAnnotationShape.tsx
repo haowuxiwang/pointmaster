@@ -7,6 +7,9 @@ type TextAnnotationShape = TLBaseShape<'text-annotation', {
   fontSize: number
 }>
 
+// Track editing values across renders (keyed by shape ID)
+const editingValues = new Map<string, string>()
+
 export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
   static type = 'text-annotation' as const
 
@@ -23,6 +26,18 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
 
   override canEdit() {
     return true
+  }
+
+  override onEditEnd(shape: TextAnnotationShape) {
+    const val = editingValues.get(shape.id)
+    editingValues.delete(shape.id)
+    if (val !== undefined && val !== shape.props.content) {
+      this.editor.updateShape<TextAnnotationShape>({
+        id: shape.id,
+        type: 'text-annotation',
+        props: { content: val },
+      })
+    }
   }
 
   getGeometry(shape: TextAnnotationShape) {
@@ -60,22 +75,14 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
                 resize: 'none',
                 fontFamily: 'inherit',
               }}
-              onBlur={(e) => {
-                const newContent = (e.target as HTMLTextAreaElement).value
-                if (newContent && newContent !== content) {
-                  this.editor.updateShape<TextAnnotationShape>({
-                    id: shape.id,
-                    type: 'text-annotation',
-                    props: { content: newContent },
-                  })
-                }
-                this.editor.setEditingShape(null)
+              onInput={(e) => {
+                editingValues.set(shape.id, (e.target as HTMLTextAreaElement).value)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
+                  editingValues.delete(shape.id)
                   this.editor.setEditingShape(null)
                 }
-                e.stopPropagation()
               }}
             />
           </foreignObject>
@@ -99,6 +106,18 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
           </text>
         ))}
       </SVGContainer>
+    )
+  }
+
+  toSvg(shape: TextAnnotationShape) {
+    const { content, fontSize } = shape.props
+    const lines = content.split('\n')
+    return (
+      <g>
+        {lines.map((line, i) => (
+          <text key={i} x={0} y={fontSize * (i + 1)} fontSize={fontSize} fill="#333">{line}</text>
+        ))}
+      </g>
     )
   }
 

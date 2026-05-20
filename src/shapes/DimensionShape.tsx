@@ -10,6 +10,9 @@ type DimensionShape = TLBaseShape<'dimension', {
   label: string
 }>
 
+// Track editing values across renders (keyed by shape ID)
+const editingValues = new Map<string, string>()
+
 export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
   static type = 'dimension' as const
 
@@ -23,6 +26,18 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
 
   override canEdit() {
     return true
+  }
+
+  override onEditEnd(shape: DimensionShape) {
+    const val = editingValues.get(shape.id)
+    editingValues.delete(shape.id)
+    if (val !== undefined && val !== shape.props.label) {
+      this.editor.updateShape<DimensionShape>({
+        id: shape.id,
+        type: 'dimension',
+        props: { label: val },
+      })
+    }
   }
 
   getDefaultProps(): DimensionShape['props'] {
@@ -78,33 +93,26 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
                 background: 'white',
                 textAlign: 'center',
               }}
-              onBlur={(e) => {
-                const newLabel = (e.target as HTMLInputElement).value.trim()
-                if (newLabel && newLabel !== label) {
-                  this.editor.updateShape<DimensionShape>({
-                    id: shape.id,
-                    type: 'dimension',
-                    props: { label: newLabel },
-                  })
-                }
-                this.editor.setEditingShape(null)
+              onInput={(e) => {
+                editingValues.set(shape.id, (e.target as HTMLInputElement).value)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  const newLabel = (e.target as HTMLInputElement).value.trim()
-                  if (newLabel && newLabel !== label) {
+                  const val = editingValues.get(shape.id) ?? label
+                  editingValues.delete(shape.id)
+                  if (val !== label) {
                     this.editor.updateShape<DimensionShape>({
                       id: shape.id,
                       type: 'dimension',
-                      props: { label: newLabel },
+                      props: { label: val },
                     })
                   }
                   this.editor.setEditingShape(null)
                 }
                 if (e.key === 'Escape') {
+                  editingValues.delete(shape.id)
                   this.editor.setEditingShape(null)
                 }
-                e.stopPropagation()
               }}
             />
           </foreignObject>
@@ -119,6 +127,22 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
           </text>
         )}
       </SVGContainer>
+    )
+  }
+
+  toSvg(shape: DimensionShape) {
+    const { from, to, label } = shape.props
+    const p1 = project3Dto2D(from.x, from.y, from.z, CHAMBER_SCALE)
+    const p2 = project3Dto2D(to.x, to.y, to.z, CHAMBER_SCALE)
+    const mx = (p1.x + p2.x) / 2
+    const my = (p1.y + p2.y) / 2
+    return (
+      <g>
+        <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#e74c3c" strokeWidth={1} strokeDasharray="4 2" />
+        <circle cx={p1.x} cy={p1.y} r={3} fill="#e74c3c" />
+        <circle cx={p2.x} cy={p2.y} r={3} fill="#e74c3c" />
+        <text x={mx} y={my - 8} fontSize={10} fill="#e74c3c" textAnchor="middle">{label}</text>
+      </g>
     )
   }
 

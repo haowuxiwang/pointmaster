@@ -9,8 +9,10 @@ interface ExtraFixedPoint {
 export function uniformPlacement(
   chamber: Chamber,
   totalCount: number,
-  extraFixedPoints: ExtraFixedPoint[] = []
+  extraFixedPoints: ExtraFixedPoint[] = [],
+  options: { includeCenter?: boolean } = {}
 ): ProbePointData[] {
+  const { includeCenter = true } = options;
   const { width, depth, height, layers = 1 } = chamber.dimensions;
   const ventPorts = chamber.ventPorts ?? [];
 
@@ -46,10 +48,7 @@ export function uniformPlacement(
     { x: width * (1 - inset), y: depth * (1 - inset), z: height * (1 - inset) },
   ];
 
-  // Center point
-  const centerPosition: Point3D = { x: width / 2, y: depth / 2, z: height / 2 };
-
-  // Key points (corners + center)
+  // Key points (corners + optional center)
   const keyPoints: ProbePointData[] = [];
   cornerPositions.forEach((pos, i) => {
     keyPoints.push({
@@ -58,11 +57,13 @@ export function uniformPlacement(
       properties: { type: 'corner' },
     });
   });
-  keyPoints.push({
-    label: 'K9',
-    position: centerPosition,
-    properties: { type: 'center' },
-  });
+  if (includeCenter) {
+    keyPoints.push({
+      label: 'K9',
+      position: { x: width / 2, y: depth / 2, z: height / 2 },
+      properties: { type: 'center' },
+    });
+  }
 
   // Remaining points for uniform distribution
   const remainingCount = Math.max(0, totalCount - keyPoints.length - ventPoints.length - extraPoints.length);

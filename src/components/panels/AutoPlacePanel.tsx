@@ -4,6 +4,7 @@ import { useProjectStore } from '@/store/projectStore'
 export default function AutoPlacePanel() {
   const autoPlace = useProjectStore((s) => s.autoPlace)
   const points = useProjectStore((s) => s.points)
+  const editor = useProjectStore((s) => s.editor)
   const [totalCount, setTotalCount] = useState(12)
   const [includeCenter, setIncludeCenter] = useState(true)
   const [includeDrainPorts, setIncludeDrainPorts] = useState(false)
@@ -12,17 +13,18 @@ export default function AutoPlacePanel() {
   const getEstimatedCount = () => {
     let count = 8 // 8 corners
     if (includeCenter) count += 1
-    // Drain ports and inlet ports are counted from existing shapes
-    const drainPortCount = points.filter((p) => p.properties?.type === 'drain-port').length
-    const inletPortCount = points.filter((p) => p.properties?.type === 'inlet-port').length
-    if (includeDrainPorts) count += drainPortCount
-    if (includeInletPorts) count += inletPortCount
+    // Read device component counts from canvas shapes, not from store.points
+    if (editor) {
+      const shapes = editor.getCurrentPageShapes()
+      if (includeDrainPorts) count += shapes.filter((s) => s.type === 'drain-port').length
+      if (includeInletPorts) count += shapes.filter((s) => s.type === 'inlet-port').length
+    }
     return count
   }
 
   const handlePlace = () => {
     if (points.length > 0) {
-      if (!confirm(`当前有 ${points.length} 个点位，自动布点将覆盖所有现有点位。继续？`)) {
+      if (!confirm(`当前有 ${points.length} 个布点，将重新生成 ${totalCount} 个点位。继续？`)) {
         return
       }
     }

@@ -8,6 +8,9 @@ type DrainPortShape = TLBaseShape<'drain-port', {
   pointData: ProbePointData
 }>
 
+// Track editing values across renders (keyed by shape ID)
+const editingValues = new Map<string, string>()
+
 export class DrainPortShapeUtil extends ShapeUtil<DrainPortShape> {
   static type = 'drain-port' as const
 
@@ -29,6 +32,21 @@ export class DrainPortShapeUtil extends ShapeUtil<DrainPortShape> {
 
   override canEdit() {
     return true
+  }
+
+  override onEditEnd(shape: DrainPortShape) {
+    const val = editingValues.get(shape.id)
+    editingValues.delete(shape.id)
+    if (val !== undefined && val !== shape.props.label) {
+      this.editor.updateShape<DrainPortShape>({
+        id: shape.id,
+        type: 'drain-port',
+        props: {
+          label: val,
+          pointData: { ...shape.props.pointData, label: val },
+        },
+      })
+    }
   }
 
   getGeometry(_shape: DrainPortShape) {
@@ -63,39 +81,26 @@ export class DrainPortShapeUtil extends ShapeUtil<DrainPortShape> {
                 background: 'white',
                 textAlign: 'center',
               }}
-              onBlur={(e) => {
-                const newLabel = (e.target as HTMLInputElement).value.trim()
-                if (newLabel && newLabel !== label) {
-                  this.editor.updateShape<DrainPortShape>({
-                    id: shape.id,
-                    type: 'drain-port',
-                    props: {
-                      label: newLabel,
-                      pointData: { ...shape.props.pointData, label: newLabel },
-                    },
-                  })
-                }
-                this.editor.setEditingShape(null)
+              onInput={(e) => {
+                editingValues.set(shape.id, (e.target as HTMLInputElement).value)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  const newLabel = (e.target as HTMLInputElement).value.trim()
-                  if (newLabel && newLabel !== label) {
+                  const val = editingValues.get(shape.id) ?? label
+                  editingValues.delete(shape.id)
+                  if (val !== label) {
                     this.editor.updateShape<DrainPortShape>({
                       id: shape.id,
                       type: 'drain-port',
-                      props: {
-                        label: newLabel,
-                        pointData: { ...shape.props.pointData, label: newLabel },
-                      },
+                      props: { label: val, pointData: { ...shape.props.pointData, label: val } },
                     })
                   }
                   this.editor.setEditingShape(null)
                 }
                 if (e.key === 'Escape') {
+                  editingValues.delete(shape.id)
                   this.editor.setEditingShape(null)
                 }
-                e.stopPropagation()
               }}
             />
           </foreignObject>
@@ -105,6 +110,18 @@ export class DrainPortShapeUtil extends ShapeUtil<DrainPortShape> {
           </text>
         )}
       </SVGContainer>
+    )
+  }
+
+  toSvg(shape: DrainPortShape) {
+    const { label } = shape.props
+    return (
+      <g>
+        <circle cx={0} cy={0} r={12} fill="none" stroke="#000" strokeWidth={1} />
+        <line x1={-8} y1={0} x2={8} y2={0} stroke="#000" strokeWidth={1} />
+        <line x1={0} y1={-8} x2={0} y2={8} stroke="#000" strokeWidth={1} />
+        <text x={0} y={-18} fontSize={10} fill="#000" textAnchor="middle">{label}</text>
+      </g>
     )
   }
 

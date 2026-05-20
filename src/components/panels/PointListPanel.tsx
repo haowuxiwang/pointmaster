@@ -72,7 +72,7 @@ export default function PointListPanel() {
                 ({Math.round(p.position.x)}, {Math.round(p.position.y)}, {Math.round(p.position.z)})
               </span>
             </div>
-            <button className="text-xs text-red-400 opacity-0 group-hover:opacity-100" onClick={() => removePoint(p.label)}>删除</button>
+            <button className="text-xs text-red-400 opacity-0 group-hover:opacity-100" onClick={() => { if (confirm(`确定删除 ${p.label}？`)) removePoint(p.label) }}>删除</button>
           </div>
         ))}
         {points.length === 0 && <p className="text-sm text-gray-400">暂无布点</p>}

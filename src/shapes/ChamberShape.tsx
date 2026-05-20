@@ -9,6 +9,9 @@ type ChamberShape = TLBaseShape<'chamber', {
   chamberData: Chamber
 }>
 
+// Track editing values across renders (keyed by shape ID)
+const editingValues = new Map<string, string>()
+
 export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
   static type = 'chamber' as const
 
@@ -20,6 +23,18 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
 
   override canEdit() {
     return true
+  }
+
+  override onEditEnd(shape: ChamberShape) {
+    const val = editingValues.get(shape.id)
+    editingValues.delete(shape.id)
+    if (val !== undefined && val !== shape.props.chamberData.name) {
+      this.editor.updateShape<ChamberShape>({
+        id: shape.id,
+        type: 'chamber',
+        props: { chamberData: { ...shape.props.chamberData, name: val } },
+      })
+    }
   }
 
   getDefaultProps(): ChamberShape['props'] {
@@ -107,17 +122,6 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
       layerPath = result.layers
     }
 
-    const handleSave = (newName: string) => {
-      if (newName && newName !== chamberData.name) {
-        this.editor.updateShape<ChamberShape>({
-          id: shape.id,
-          type: 'chamber',
-          props: { chamberData: { ...shape.props.chamberData, name: newName } },
-        })
-      }
-      this.editor.setEditingShape(null)
-    }
-
     const nameElement = isEditing ? (
       <foreignObject x={-60} y={-26} width={120} height={20}>
         <input
@@ -134,11 +138,26 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
             background: 'white',
             textAlign: 'center',
           }}
-          onBlur={(e) => handleSave((e.target as HTMLInputElement).value.trim())}
+          onInput={(e) => {
+            editingValues.set(shape.id, (e.target as HTMLInputElement).value)
+          }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSave((e.target as HTMLInputElement).value.trim())
-            if (e.key === 'Escape') this.editor.setEditingShape(null)
-            e.stopPropagation()
+            if (e.key === 'Enter') {
+              const val = editingValues.get(shape.id) ?? chamberData.name
+              editingValues.delete(shape.id)
+              if (val !== chamberData.name) {
+                this.editor.updateShape<ChamberShape>({
+                  id: shape.id,
+                  type: 'chamber',
+                  props: { chamberData: { ...shape.props.chamberData, name: val } },
+                })
+              }
+              this.editor.setEditingShape(null)
+            }
+            if (e.key === 'Escape') {
+              editingValues.delete(shape.id)
+              this.editor.setEditingShape(null)
+            }
           }}
         />
       </foreignObject>
@@ -254,6 +273,62 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
         )}
         {nameElement}
       </SVGContainer>
+    )
+  }
+
+  toSvg(shape: ChamberShape) {
+    const { chamberData } = shape.props
+    const { type, dimensions } = chamberData
+    const { width, depth, height, layers = 1 } = dimensions
+
+    if (type === 'cylinder') {
+      const radius = chamberData.radius ?? Math.min(width, depth) / 2
+      const result = cylinderPath(radius, height, 0.2, layers, chamberData.nozzles, chamberData.hasCoil)
+
+      return (
+        <g>
+          <defs>
+            <linearGradient id="cylinderBody" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#d8d8d8" />
+              <stop offset="35%" stopColor="#f0f0f0" />
+              <stop offset="65%" stopColor="#e0e0e0" />
+              <stop offset="100%" stopColor="#b8b8b8" />
+            </linearGradient>
+            <linearGradient id="cylinderTop" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f5f5f5" />
+              <stop offset="100%" stopColor="#e0e0e0" />
+            </linearGradient>
+          </defs>
+          <path d={result.bottomBackArc} fill="none" stroke="#999" strokeWidth={0.8} strokeDasharray="4 2" />
+          <path d={result.frontFill} fill="url(#cylinderBody)" stroke="none" />
+          <path d={result.topFill} fill="url(#cylinderTop)" stroke="none" />
+          {result.layers && <path d={result.layers} fill="none" stroke="#999" strokeWidth={1.5} strokeDasharray="6 3" />}
+          <path d={result.bottomFrontArc} fill="none" stroke="#000" strokeWidth={1.2} />
+          <path d={result.topEllipse} fill="none" stroke="#000" strokeWidth={1.2} />
+          <path d={result.sideLines} fill="none" stroke="#000" strokeWidth={1} />
+          {result.headPath && <path d={result.headPath} fill="none" stroke="#555" strokeWidth={0.8} />}
+          {result.supportsPath && <path d={result.supportsPath} fill="none" stroke="#555" strokeWidth={0.8} />}
+          {result.nozzlesPath && <path d={result.nozzlesPath} fill="none" stroke="#555" strokeWidth={0.8} />}
+          {result.coilPath && <path d={result.coilPath} fill="none" stroke="#aaa" strokeWidth={0.6} strokeDasharray="3 2" />}
+          {result.nozzleLabels.map((nl, i) => (
+            <text key={i} x={nl.x} y={nl.y - 8} fontSize={8} fill="#555" textAnchor="middle">{nl.name}</text>
+          ))}
+          <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">{chamberData.name}</text>
+        </g>
+      )
+    }
+
+    const result = cuboidPath(width, depth, height, 0.2, layers)
+
+    return (
+      <g>
+        {result.faces.map((face, i) => (
+          <path key={i} d={face.path} fill={face.fill} stroke="none" />
+        ))}
+        {result.layers && <path d={result.layers} fill="none" stroke="#999" strokeWidth={1.5} strokeDasharray="6 3" />}
+        <path d={result.edges} fill="none" stroke="#000" strokeWidth={1} strokeLinejoin="round" />
+        <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">{chamberData.name}</text>
+      </g>
     )
   }
 

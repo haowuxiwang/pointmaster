@@ -8,6 +8,9 @@ type BuiltInProbeShape = TLBaseShape<'built-in-probe', {
   pointData: ProbePointData
 }>
 
+// Track editing values across renders (keyed by shape ID)
+const editingValues = new Map<string, string>()
+
 export class BuiltInProbeShapeUtil extends ShapeUtil<BuiltInProbeShape> {
   static type = 'built-in-probe' as const
 
@@ -29,6 +32,21 @@ export class BuiltInProbeShapeUtil extends ShapeUtil<BuiltInProbeShape> {
 
   override canEdit() {
     return true
+  }
+
+  override onEditEnd(shape: BuiltInProbeShape) {
+    const val = editingValues.get(shape.id)
+    editingValues.delete(shape.id)
+    if (val !== undefined && val !== shape.props.label) {
+      this.editor.updateShape<BuiltInProbeShape>({
+        id: shape.id,
+        type: 'built-in-probe',
+        props: {
+          label: val,
+          pointData: { ...shape.props.pointData, label: val },
+        },
+      })
+    }
   }
 
   getGeometry(_shape: BuiltInProbeShape) {
@@ -65,39 +83,26 @@ export class BuiltInProbeShapeUtil extends ShapeUtil<BuiltInProbeShape> {
                 background: 'white',
                 textAlign: 'center',
               }}
-              onBlur={(e) => {
-                const newLabel = (e.target as HTMLInputElement).value.trim()
-                if (newLabel && newLabel !== label) {
-                  this.editor.updateShape<BuiltInProbeShape>({
-                    id: shape.id,
-                    type: 'built-in-probe',
-                    props: {
-                      label: newLabel,
-                      pointData: { ...shape.props.pointData, label: newLabel },
-                    },
-                  })
-                }
-                this.editor.setEditingShape(null)
+              onInput={(e) => {
+                editingValues.set(shape.id, (e.target as HTMLInputElement).value)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  const newLabel = (e.target as HTMLInputElement).value.trim()
-                  if (newLabel && newLabel !== label) {
+                  const val = editingValues.get(shape.id) ?? label
+                  editingValues.delete(shape.id)
+                  if (val !== label) {
                     this.editor.updateShape<BuiltInProbeShape>({
                       id: shape.id,
                       type: 'built-in-probe',
-                      props: {
-                        label: newLabel,
-                        pointData: { ...shape.props.pointData, label: newLabel },
-                      },
+                      props: { label: val, pointData: { ...shape.props.pointData, label: val } },
                     })
                   }
                   this.editor.setEditingShape(null)
                 }
                 if (e.key === 'Escape') {
+                  editingValues.delete(shape.id)
                   this.editor.setEditingShape(null)
                 }
-                e.stopPropagation()
               }}
             />
           </foreignObject>
@@ -107,6 +112,18 @@ export class BuiltInProbeShapeUtil extends ShapeUtil<BuiltInProbeShape> {
           </text>
         )}
       </SVGContainer>
+    )
+  }
+
+  toSvg(shape: BuiltInProbeShape) {
+    const { label } = shape.props
+    const size = 10
+    const points = `0,${-size} ${size},${size} ${-size},${size}`
+    return (
+      <g>
+        <polygon points={points} fill="none" stroke="#000" strokeWidth={1} />
+        <text x={0} y={-16} fontSize={10} fill="#000" textAnchor="middle">{label}</text>
+      </g>
     )
   }
 

@@ -6,6 +6,86 @@ import { generatePlacementDescription } from '@/utils/description';
 import type { Editor, TLShapeId } from 'tldraw';
 import { createShapeId } from 'tldraw';
 
+function createPointShape(
+  editor: Editor,
+  chamberShapeId: TLShapeId,
+  point: ProbePointData,
+  index: number,
+  shapeType: string = 'probe-point',
+): void {
+  const projected = project3Dto2D(point.position.x, point.position.y, point.position.z, CHAMBER_SCALE)
+  const pointId = createShapeId(`${shapeType}-${index}`)
+  editor.createShape({
+    id: pointId,
+    type: shapeType as any,
+    parentId: chamberShapeId,
+    x: projected.x,
+    y: projected.y,
+    props: {
+      w: 40,
+      h: 40,
+      pointData: point,
+    },
+  })
+}
+
+function syncPointsToCanvas(
+  editor: Editor,
+  chamberShapeId: TLShapeId,
+  chamber: Chamber,
+  newPoints: ProbePointData[],
+  fixedShapes: Array<{ position: import('@/types').Point3D; label: string; type: string }>,
+): void {
+  // Only delete probe-point shapes, preserve device components (drain-port, inlet-port, built-in-probe)
+  const existingProbes = editor.getCurrentPageShapes().filter((s) => s.type === 'probe-point')
+  editor.deleteShapes(existingProbes.map((s) => s.id))
+
+  // Create new point shapes
+  newPoints.forEach((point, index) => {
+    createPointShape(editor, chamberShapeId, point, index)
+  })
+
+  // Switch to select tool
+  editor.setCurrentTool('select')
+
+  // Generate placement description
+  const existingDesc = editor.getCurrentPageShapes().find(s => s.id === createShapeId('placement-desc'))
+  if (existingDesc) editor.deleteShapes([existingDesc.id])
+  const description = generatePlacementDescription(chamber, newPoints, fixedShapes)
+  const descId = createShapeId('placement-desc')
+  const chamberPagePos = editor.getShapePageTransform(chamberShapeId)?.point()
+  const chamberPageX = chamberPagePos?.x ?? 100
+  const chamberPageY = chamberPagePos?.y ?? 100
+  const chamberBottom = getChamberProjectedBottom(chamber)
+  editor.createShape({
+    id: descId,
+    type: 'text-annotation',
+    x: chamberPageX,
+    y: chamberPageY + chamberBottom + 30,
+    props: { w: 300, h: 120, content: description, fontSize: 11 },
+  })
+
+  // Zoom to fit all content including the description
+  editor.zoomToFit({ animation: { duration: 300 } })
+}
+
+function getChamberProjectedBottom(chamber: Chamber): number {
+  const { width, depth, height } = chamber.dimensions;
+  const sinA = Math.sin(Math.PI / 6);
+  const vertices = [
+    { x: 0, y: 0, z: 0 }, { x: width, y: 0, z: 0 },
+    { x: width, y: depth, z: 0 }, { x: 0, y: depth, z: 0 },
+    { x: 0, y: 0, z: height }, { x: width, y: 0, z: height },
+    { x: width, y: depth, z: height }, { x: 0, y: depth, z: height },
+  ];
+  let maxY = -Infinity;
+  for (const v of vertices) {
+    const projY = (v.x + v.y) * sinA * CHAMBER_SCALE - v.z * CHAMBER_SCALE;
+    if (projY > maxY) maxY = projY;
+  }
+  return maxY;
+}
+
 interface ProjectState {
   projectName: string;
   chamber: Chamber;
@@ -86,7 +166,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
   setPoints: (points) => set({ points }),
   addPoint: (point) => set((s) => ({ points: [...s.points, point] })),
-  removePoint: (label) => set((s) => ({ points: s.points.filter((p) => p.label !== label) })),
+  removePoint: (label) => {
+    const { editor } = get()
+    set((s) => ({ points: s.points.filter((p) => p.label !== label) }))
+    if (editor) {
+      const shape = editor.getCurrentPageShapes().find(
+        (s) => ['probe-point', 'drain-port', 'inlet-port', 'built-in-probe'].includes(s.type)
+          && (s.props as any).pointData?.label === label
+      )
+      if (shape) editor.deleteShapes([shape.id])
+    }
+  },
   updatePoint: (label, updates) => set((s) => ({
     points: s.points.map((p) => p.label === label ? { ...p, ...updates } : p),
   })),
@@ -122,84 +212,70 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
               type: 'inlet-port',
             });
           }
+        } else if (shape.type === 'built-in-probe' && params.includeBuiltInProbes) {
+          const pointData = (shape.props as any).pointData;
+          if (pointData?.position) {
+            extraFixedPoints.push({
+              position: pointData.position,
+              label: pointData.label || '自身探头',
+              type: 'built-in-probe',
+            });
+          }
         }
       }
     }
-    // Add vent ports from chamber data
-    const ventPorts = chamber.ventPorts ?? [];
-    ventPorts.forEach((pos, i) => {
-      extraFixedPoints.push({ position: pos, label: `排气口${i + 1}`, type: 'vent-port' });
-    });
+    // Note: vent ports are handled internally by uniformPlacement() from chamber.ventPorts
+    // Do NOT push them into extraFixedPoints here to avoid double-counting
 
-    let newPoints: ProbePointData[] = uniformPlacement(chamber, params.totalCount ?? 12, extraFixedPoints);
+    let newPoints: ProbePointData[] = uniformPlacement(
+      chamber,
+      params.totalCount ?? 12,
+      extraFixedPoints,
+      { includeCenter: params.includeCenter ?? true }
+    );
     set({ points: newPoints });
 
     if (editor && chamberShapeId) {
-      const existingPoints = editor.getCurrentPageShapes().filter((s) => s.type === 'probe-point');
-      editor.deleteShapes(existingPoints.map((s) => s.id));
-
-      // Get chamber position for absolute coordinates
-      const chamberShape = editor.getShape(chamberShapeId)
-      const chamberX = chamberShape?.x ?? 100
-      const chamberY = chamberShape?.y ?? 100
-
-      newPoints.forEach((point, index) => {
-        const projected = project3Dto2D(point.position.x, point.position.y, point.position.z, CHAMBER_SCALE);
-        const pointId = createShapeId(`probe-point-${index}`);
-        editor.createShape({
-          id: pointId,
-          type: 'probe-point',
-          x: chamberX + projected.x,
-          y: chamberY + projected.y,
-          props: {
-            w: 40,
-            h: 40,
-            pointData: point,
-          },
-        });
-      });
-
-      // Switch to select tool after placing points
-      editor.setCurrentTool('select')
-
-      // Generate placement description
-      const existingDesc = editor.getCurrentPageShapes().find(s => s.id === createShapeId('placement-desc'))
-      if (existingDesc) editor.deleteShapes([existingDesc.id])
-      const description = generatePlacementDescription(chamber, newPoints, extraFixedPoints)
-      const descId = createShapeId('placement-desc')
-      const descChamber = editor.getShape(chamberShapeId)
-      editor.createShape({
-        id: descId,
-        type: 'text-annotation',
-        x: (descChamber?.x ?? 100) + 820,
-        y: (descChamber?.y ?? 100) + 50,
-        props: { w: 300, h: 120, content: description, fontSize: 11 },
-      })
+      syncPointsToCanvas(editor, chamberShapeId, chamber, newPoints, extraFixedPoints)
     }
   },
 
   saveProject: () => {
-    const { projectName, chamber, points, createdAt } = get();
+    const { projectName, chamber, points, createdAt, editor } = get();
     const now = new Date().toISOString();
-    return { version: '1.0', name: projectName, chamber, points, createdAt: createdAt ?? now, updatedAt: now };
+
+    // Collect additional shapes from canvas
+    let drainPorts: ProbePointData[] = [];
+    let inletPorts: ProbePointData[] = [];
+    let builtInProbes: ProbePointData[] = [];
+    let description: { content: string; x: number; y: number } | undefined;
+
+    if (editor) {
+      for (const shape of editor.getCurrentPageShapes()) {
+        const pd = (shape.props as any).pointData;
+        if (shape.type === 'drain-port' && pd) drainPorts.push(pd);
+        else if (shape.type === 'inlet-port' && pd) inletPorts.push(pd);
+        else if (shape.type === 'built-in-probe' && pd) builtInProbes.push(pd);
+        else if (shape.type === 'text-annotation' && shape.id === createShapeId('placement-desc')) {
+          description = { content: (shape.props as any).content, x: shape.x, y: shape.y };
+        }
+      }
+    }
+
+    return {
+      version: '1.0', name: projectName, chamber, points,
+      createdAt: createdAt ?? now, updatedAt: now,
+      drainPorts, inletPorts, builtInProbes, description,
+    };
   },
 
   uniformPlace: () => {
     const { chamber, editor, chamberShapeId, pointCount } = get();
-    const newPoints = uniformPlacement(chamber, pointCount);
-    set({ points: newPoints });
 
-    if (editor && chamberShapeId) {
-      const existingPoints = editor.getCurrentPageShapes().filter((s) => s.type === 'probe-point');
-      editor.deleteShapes(existingPoints.map((s) => s.id));
-
-      // Get chamber position for absolute coordinates
-      const chamberShape = editor.getShape(chamberShapeId)
-      const chamberX = chamberShape?.x ?? 100
-      const chamberY = chamberShape?.y ?? 100
-
-      // Collect fixed shapes for description (drain ports, inlet ports, etc.)
-      const fixedShapes: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
+    // Collect fixed shapes for description and extraFixedPoints
+    const fixedShapes: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
+    const extraFixedPoints: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
+    if (editor) {
       const allShapes = editor.getCurrentPageShapes();
       for (const shape of allShapes) {
         if (shape.type === 'drain-port' || shape.type === 'inlet-port' || shape.type === 'built-in-probe') {
@@ -210,47 +286,28 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
               label: pointData.label || shape.type,
               type: shape.type,
             });
+            if (shape.type === 'drain-port' || shape.type === 'inlet-port') {
+              extraFixedPoints.push({
+                position: pointData.position,
+                label: pointData.label || shape.type,
+                type: shape.type,
+              });
+            }
           }
         }
       }
-      // Add vent ports from chamber data
-      const ventPorts = chamber.ventPorts ?? [];
-      ventPorts.forEach((pos, i) => {
-        fixedShapes.push({ position: pos, label: `排气口${i + 1}`, type: 'vent-port' });
-      });
+    }
+    // Add vent ports from chamber data
+    const ventPorts = chamber.ventPorts ?? [];
+    ventPorts.forEach((pos, i) => {
+      fixedShapes.push({ position: pos, label: `排气口${i + 1}`, type: 'vent-port' });
+    });
 
-      newPoints.forEach((point, index) => {
-        const projected = project3Dto2D(point.position.x, point.position.y, point.position.z, CHAMBER_SCALE);
-        const pointId = createShapeId(`probe-point-${index}`);
-        editor.createShape({
-          id: pointId,
-          type: 'probe-point',
-          x: chamberX + projected.x,
-          y: chamberY + projected.y,
-          props: {
-            w: 40,
-            h: 40,
-            pointData: point,
-          },
-        });
-      });
+    const newPoints = uniformPlacement(chamber, pointCount, extraFixedPoints);
+    set({ points: newPoints });
 
-      // Switch to select tool after placing points
-      editor.setCurrentTool('select')
-
-      // Generate placement description
-      const existingDesc = editor.getCurrentPageShapes().find(s => s.id === createShapeId('placement-desc'))
-      if (existingDesc) editor.deleteShapes([existingDesc.id])
-      const description = generatePlacementDescription(chamber, newPoints, fixedShapes)
-      const descId = createShapeId('placement-desc')
-      const descChamber = editor.getShape(chamberShapeId)
-      editor.createShape({
-        id: descId,
-        type: 'text-annotation',
-        x: (descChamber?.x ?? 100) + 820,
-        y: (descChamber?.y ?? 100) + 50,
-        props: { w: 300, h: 120, content: description, fontSize: 11 },
-      })
+    if (editor && chamberShapeId) {
+      syncPointsToCanvas(editor, chamberShapeId, chamber, newPoints, fixedShapes)
     }
   },
 
@@ -279,23 +336,47 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       });
       set({ chamberShapeId: chamberId });
 
-      // Rebuild point shapes as independent shapes
+      // Rebuild point shapes as child shapes of chamber
       data.points.forEach((point, index) => {
-        const projected = project3Dto2D(point.position.x, point.position.y, point.position.z, CHAMBER_SCALE);
-        const pointId = createShapeId(`probe-point-${index}`);
-        editor.createShape({
-          id: pointId,
-          type: 'probe-point',
-          x: 100 + projected.x,
-          y: 100 + projected.y,
-          props: { w: 40, h: 40, pointData: point },
-        });
+        createPointShape(editor, chamberId, point, index)
       });
+
+      // Restore drain ports
+      (data.drainPorts ?? []).forEach((pd, i) => {
+        createPointShape(editor, chamberId, pd, i, 'drain-port')
+      });
+
+      // Restore inlet ports
+      (data.inletPorts ?? []).forEach((pd, i) => {
+        createPointShape(editor, chamberId, pd, i, 'inlet-port')
+      });
+
+      // Restore built-in probes
+      (data.builtInProbes ?? []).forEach((pd, i) => {
+        createPointShape(editor, chamberId, pd, i, 'built-in-probe')
+      });
+
+      // Restore description
+      if (data.description) {
+        editor.createShape({
+          id: createShapeId('placement-desc'),
+          type: 'text-annotation',
+          x: data.description.x,
+          y: data.description.y,
+          props: { w: 300, h: 120, content: data.description.content, fontSize: 11 },
+        })
+      }
     }
   },
   loadTemplate: (template) => {
     const { editor } = get();
-    set({ chamber: template.chamber, points: [], projectName: template.name });
+    set({
+      chamber: template.chamber,
+      points: [],
+      projectName: template.name,
+      currentZLevel: Math.min(get().currentZLevel, template.chamber.dimensions.height),
+      createdAt: null,
+    });
 
     if (editor) {
       // 清除现有形状

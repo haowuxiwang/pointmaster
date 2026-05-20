@@ -8,6 +8,9 @@ type InletPortShape = TLBaseShape<'inlet-port', {
   pointData: ProbePointData
 }>
 
+// Track editing values across renders (keyed by shape ID)
+const editingValues = new Map<string, string>()
+
 export class InletPortShapeUtil extends ShapeUtil<InletPortShape> {
   static type = 'inlet-port' as const
 
@@ -29,6 +32,21 @@ export class InletPortShapeUtil extends ShapeUtil<InletPortShape> {
 
   override canEdit() {
     return true
+  }
+
+  override onEditEnd(shape: InletPortShape) {
+    const val = editingValues.get(shape.id)
+    editingValues.delete(shape.id)
+    if (val !== undefined && val !== shape.props.label) {
+      this.editor.updateShape<InletPortShape>({
+        id: shape.id,
+        type: 'inlet-port',
+        props: {
+          label: val,
+          pointData: { ...shape.props.pointData, label: val },
+        },
+      })
+    }
   }
 
   getGeometry(_shape: InletPortShape) {
@@ -71,39 +89,26 @@ export class InletPortShapeUtil extends ShapeUtil<InletPortShape> {
                 background: 'white',
                 textAlign: 'center',
               }}
-              onBlur={(e) => {
-                const newLabel = (e.target as HTMLInputElement).value.trim()
-                if (newLabel && newLabel !== label) {
-                  this.editor.updateShape<InletPortShape>({
-                    id: shape.id,
-                    type: 'inlet-port',
-                    props: {
-                      label: newLabel,
-                      pointData: { ...shape.props.pointData, label: newLabel },
-                    },
-                  })
-                }
-                this.editor.setEditingShape(null)
+              onInput={(e) => {
+                editingValues.set(shape.id, (e.target as HTMLInputElement).value)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  const newLabel = (e.target as HTMLInputElement).value.trim()
-                  if (newLabel && newLabel !== label) {
+                  const val = editingValues.get(shape.id) ?? label
+                  editingValues.delete(shape.id)
+                  if (val !== label) {
                     this.editor.updateShape<InletPortShape>({
                       id: shape.id,
                       type: 'inlet-port',
-                      props: {
-                        label: newLabel,
-                        pointData: { ...shape.props.pointData, label: newLabel },
-                      },
+                      props: { label: val, pointData: { ...shape.props.pointData, label: val } },
                     })
                   }
                   this.editor.setEditingShape(null)
                 }
                 if (e.key === 'Escape') {
+                  editingValues.delete(shape.id)
                   this.editor.setEditingShape(null)
                 }
-                e.stopPropagation()
               }}
             />
           </foreignObject>
@@ -113,6 +118,24 @@ export class InletPortShapeUtil extends ShapeUtil<InletPortShape> {
           </text>
         )}
       </SVGContainer>
+    )
+  }
+
+  toSvg(shape: InletPortShape) {
+    const { label } = shape.props
+    return (
+      <g>
+        <circle cx={0} cy={0} r={12} fill="none" stroke="#000" strokeWidth={1} />
+        <line x1={-10} y1={0} x2={-4} y2={0} stroke="#000" strokeWidth={1.5} />
+        <line x1={10} y1={0} x2={4} y2={0} stroke="#000" strokeWidth={1.5} />
+        <line x1={0} y1={-10} x2={0} y2={-4} stroke="#000" strokeWidth={1.5} />
+        <line x1={0} y1={10} x2={0} y2={4} stroke="#000" strokeWidth={1.5} />
+        <polygon points="-4,-3 -4,3 -1,0" fill="#000" />
+        <polygon points="4,-3 4,3 1,0" fill="#000" />
+        <polygon points="-3,-4 3,-4 0,-1" fill="#000" />
+        <polygon points="-3,4 3,4 0,1" fill="#000" />
+        <text x={0} y={-18} fontSize={10} fill="#000" textAnchor="middle">{label}</text>
+      </g>
     )
   }
 

@@ -76,6 +76,10 @@ export interface ProjectData {
   points: ProbePointData[];
   createdAt: string;
   updatedAt: string;
+  drainPorts?: ProbePointData[];
+  inletPorts?: ProbePointData[];
+  builtInProbes?: ProbePointData[];
+  description?: { content: string; x: number; y: number };
 }
 
 /** 设备模板 */
@@ -97,4 +101,5 @@ export interface PlacementParams {
   includeCenter?: boolean;
   includeDrainPorts?: boolean;
   includeInletPorts?: boolean;
+  includeBuiltInProbes?: boolean;
 }

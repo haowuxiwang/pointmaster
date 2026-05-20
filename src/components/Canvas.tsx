@@ -54,7 +54,24 @@ function EditorSync() {
     // Listen for shape changes to sync position and labels
     const unsubscribe = editor.store.listen((entry) => {
       const changes = entry.changes
-      if (!changes?.updated) return
+      if (!changes) return
+
+      // Sync newly added point shapes to store
+      if (changes.added) {
+        for (const record of Object.values(changes.added)) {
+          if (record.typeName !== 'shape') continue
+          const shape = record as any
+          if (!pointTypes.has(shape.type)) continue
+          const pd = shape.props?.pointData
+          if (!pd?.label || !pd?.position) continue
+          const store = useProjectStore.getState()
+          if (!store.points.find((p) => p.label === pd.label)) {
+            useProjectStore.setState({ points: [...store.points, pd] })
+          }
+        }
+      }
+
+      if (!changes.updated) return
 
       for (const [from, to] of Object.values(changes.updated)) {
         if (to.typeName !== 'shape') continue
@@ -74,8 +91,9 @@ function EditorSync() {
 
         // Handle probe/port changes — position sync only during drag
         if (!pointTypes.has(shape.type)) continue
-        const label = shape.props?.pointData?.label
-        if (!label) continue
+        const oldLabel = prevShape?.props?.pointData?.label
+        const newLabel = shape.props?.pointData?.label
+        if (!oldLabel || !newLabel) continue
 
         // Check if x or y actually changed (drag = position-only change)
         const posChanged = prevShape && (prevShape.x !== shape.x || prevShape.y !== shape.y)
@@ -83,28 +101,26 @@ function EditorSync() {
         // Only sync labels when not dragging (label edit = non-drag change)
         if (!posChanged) {
           const store = useProjectStore.getState()
-          const oldPoint = store.points.find((p) => p.label === label)
-          if (oldPoint) {
-            const shapeLabel = shape.props?.label || shape.props?.pointData?.label
-            if (shapeLabel && shapeLabel !== oldPoint.label) {
-              useProjectStore.setState({
-                points: store.points.map((p) =>
-                  p.label === oldPoint.label ? { ...p, label: shapeLabel } : p
-                ),
-              })
-            }
+          const oldPoint = store.points.find((p) => p.label === oldLabel)
+          if (oldPoint && oldLabel !== newLabel) {
+            useProjectStore.setState({
+              points: store.points.map((p) =>
+                p.label === oldLabel ? { ...p, label: newLabel } : p
+              ),
+            })
           }
           continue
         }
 
-        // Position update path (drag) — use cached chamber position
+        // Position update path (drag) — child shapes have relative coords, independent shapes need offset
         const { x: cx, y: cy } = chamberPosRef.current
-        const relX = shape.x - cx
-        const relY = shape.y - cy
+        const isChild = shape.parentId !== undefined && shape.parentId !== 'page:page'
+        const relX = isChild ? shape.x : shape.x - cx
+        const relY = isChild ? shape.y : shape.y - cy
         const pointZ = shape.props?.pointData?.position?.z ?? useProjectStore.getState().currentZLevel
         const pos3D = unproject2Dto3D(relX, relY, pointZ, CHAMBER_SCALE)
 
-        pendingUpdates.current.set(label, {
+        pendingUpdates.current.set(newLabel, {
           x: Math.max(0, pos3D.x),
           y: Math.max(0, pos3D.y),
           z: pointZ,

@@ -7,6 +7,9 @@ type ProbePointShape = TLBaseShape<'probe-point', {
   pointData: ProbePointData
 }>
 
+// Track editing values across renders (keyed by shape ID)
+const editingValues = new Map<string, string>()
+
 export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
   static type = 'probe-point' as const
 
@@ -30,6 +33,18 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
 
   override canEdit() {
     return true
+  }
+
+  override onEditEnd(shape: ProbePointShape) {
+    const val = editingValues.get(shape.id)
+    editingValues.delete(shape.id)
+    if (val !== undefined && val !== shape.props.pointData.label) {
+      this.editor.updateShape<ProbePointShape>({
+        id: shape.id,
+        type: 'probe-point',
+        props: { pointData: { ...shape.props.pointData, label: val } },
+      })
+    }
   }
 
   getGeometry(_shape: ProbePointShape) {
@@ -67,37 +82,26 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
                 outline: 'none',
                 background: 'white',
               }}
-              onBlur={(e) => {
-                const newLabel = (e.target as HTMLInputElement).value.trim()
-                if (newLabel && newLabel !== label) {
-                  this.editor.updateShape<ProbePointShape>({
-                    id: shape.id,
-                    type: 'probe-point',
-                    props: {
-                      pointData: { ...shape.props.pointData, label: newLabel },
-                    },
-                  })
-                }
-                this.editor.setEditingShape(null)
+              onInput={(e) => {
+                editingValues.set(shape.id, (e.target as HTMLInputElement).value)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  const newLabel = (e.target as HTMLInputElement).value.trim()
-                  if (newLabel && newLabel !== label) {
+                  const val = editingValues.get(shape.id) ?? label
+                  editingValues.delete(shape.id)
+                  if (val !== label) {
                     this.editor.updateShape<ProbePointShape>({
                       id: shape.id,
                       type: 'probe-point',
-                      props: {
-                        pointData: { ...shape.props.pointData, label: newLabel },
-                      },
+                      props: { pointData: { ...shape.props.pointData, label: val } },
                     })
                   }
                   this.editor.setEditingShape(null)
                 }
                 if (e.key === 'Escape') {
+                  editingValues.delete(shape.id)
                   this.editor.setEditingShape(null)
                 }
-                e.stopPropagation()
               }}
             />
           </foreignObject>
@@ -107,6 +111,18 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
           </text>
         )}
       </SVGContainer>
+    )
+  }
+
+  toSvg(shape: ProbePointShape) {
+    const { label } = shape.props.pointData
+    const size = 5
+    return (
+      <g>
+        <line x1={-size} y1={0} x2={size} y2={0} stroke="#e74c3c" strokeWidth={1.5} />
+        <line x1={0} y1={-size} x2={0} y2={size} stroke="#e74c3c" strokeWidth={1.5} />
+        <text x={8} y={-8} fontSize={10} fill="#e74c3c" fontWeight="bold" textAnchor="start">{label}</text>
+      </g>
     )
   }
 
