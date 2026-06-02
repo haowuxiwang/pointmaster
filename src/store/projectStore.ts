@@ -101,6 +101,7 @@ interface ProjectState {
   setEditor: (editor: Editor | null) => void;
   setProjectName: (name: string) => void;
   setChamber: (chamber: Chamber) => void;
+  updateChamberDimensions: (dimensions: Partial<import('@/types').ChamberDimensions>, radius?: number) => void;
   setPoints: (points: ProbePointData[]) => void;
   addPoint: (point: ProbePointData) => void;
   removePoint: (label: string) => void;
@@ -164,6 +165,50 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({ chamberShapeId: chamberId });
     }
   },
+  updateChamberDimensions: (dimensionUpdates, radius) => {
+    const { chamber, editor, chamberShapeId, points } = get();
+    const oldDims = chamber.dimensions;
+
+    const newDimensions = { ...oldDims, ...dimensionUpdates };
+    const newChamber: Chamber = {
+      ...chamber,
+      dimensions: newDimensions,
+      ...(radius !== undefined ? { radius } : {}),
+    };
+
+    // Scale existing points proportionally to new dimensions
+    const scaleX = dimensionUpdates.width != null ? (dimensionUpdates.width ?? oldDims.width) / oldDims.width : 1;
+    const scaleY = dimensionUpdates.depth != null ? (dimensionUpdates.depth ?? oldDims.depth) / oldDims.depth : 1;
+    const scaleZ = dimensionUpdates.height != null ? (dimensionUpdates.height ?? oldDims.height) / oldDims.height : 1;
+
+    const scaledPoints = points.map((p) => ({
+      ...p,
+      position: {
+        x: Math.min(p.position.x * scaleX, newDimensions.width),
+        y: Math.min(p.position.y * scaleY, newDimensions.depth),
+        z: Math.min(p.position.z * scaleZ, newDimensions.height),
+      },
+    }));
+
+    const newZLevel = Math.min(get().currentZLevel, newDimensions.height);
+
+    set({
+      chamber: newChamber,
+      points: scaledPoints,
+      currentZLevel: newZLevel,
+    });
+
+    // Update canvas: rebuild chamber shape and resync points
+    if (editor && chamberShapeId) {
+      editor.updateShape({
+        id: chamberShapeId,
+        type: 'chamber',
+        props: { chamberData: newChamber },
+      });
+
+      syncPointsToCanvas(editor, chamberShapeId, newChamber, scaledPoints, []);
+    }
+  },
   setPoints: (points) => set({ points }),
   addPoint: (point) => set((s) => ({ points: [...s.points, point] })),
   removePoint: (label) => {
@@ -189,54 +234,35 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   autoPlace: (params) => {
     const { chamber, editor, chamberShapeId } = get();
 
-    // Collect extra fixed points from canvas (drain ports, inlet ports)
-    const extraFixedPoints: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
+    // Collect anchor points from canvas (drain ports, inlet ports, built-in probes)
+    // These are device components placed by the user — they are NOT part of the placement budget.
+    // When included, probe points will be placed nearby these positions.
+    const anchorPoints: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
     if (editor) {
       const shapes = editor.getCurrentPageShapes();
       for (const shape of shapes) {
+        const pointData = (shape.props as any).pointData;
+        if (!pointData?.position) continue;
+
         if (shape.type === 'drain-port' && params.includeDrainPorts) {
-          const pointData = (shape.props as any).pointData;
-          if (pointData?.position) {
-            extraFixedPoints.push({
-              position: pointData.position,
-              label: pointData.label || '排水口',
-              type: 'drain-port',
-            });
-          }
+          anchorPoints.push({ position: pointData.position, label: pointData.label || '排水口', type: 'drain-port' });
         } else if (shape.type === 'inlet-port' && params.includeInletPorts) {
-          const pointData = (shape.props as any).pointData;
-          if (pointData?.position) {
-            extraFixedPoints.push({
-              position: pointData.position,
-              label: pointData.label || '进气口',
-              type: 'inlet-port',
-            });
-          }
+          anchorPoints.push({ position: pointData.position, label: pointData.label || '进气口', type: 'inlet-port' });
         } else if (shape.type === 'built-in-probe' && params.includeBuiltInProbes) {
-          const pointData = (shape.props as any).pointData;
-          if (pointData?.position) {
-            extraFixedPoints.push({
-              position: pointData.position,
-              label: pointData.label || '自身探头',
-              type: 'built-in-probe',
-            });
-          }
+          anchorPoints.push({ position: pointData.position, label: pointData.label || '自身探头', type: 'built-in-probe' });
         }
       }
     }
-    // Note: vent ports are handled internally by uniformPlacement() from chamber.ventPorts
-    // Do NOT push them into extraFixedPoints here to avoid double-counting
 
-    let newPoints: ProbePointData[] = uniformPlacement(
+    const newPoints: ProbePointData[] = uniformPlacement(
       chamber,
       params.totalCount ?? 12,
-      extraFixedPoints,
-      { includeCenter: params.includeCenter ?? true }
+      { includeCenter: params.includeCenter ?? true, anchorPoints }
     );
     set({ points: newPoints });
 
     if (editor && chamberShapeId) {
-      syncPointsToCanvas(editor, chamberShapeId, chamber, newPoints, extraFixedPoints)
+      syncPointsToCanvas(editor, chamberShapeId, chamber, newPoints, anchorPoints)
     }
   },
 
@@ -272,42 +298,28 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   uniformPlace: () => {
     const { chamber, editor, chamberShapeId, pointCount } = get();
 
-    // Collect fixed shapes for description and extraFixedPoints
-    const fixedShapes: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
-    const extraFixedPoints: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
+    // Collect all device shapes as anchor points (for nearby placement)
+    const anchorPoints: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
     if (editor) {
-      const allShapes = editor.getCurrentPageShapes();
-      for (const shape of allShapes) {
+      for (const shape of editor.getCurrentPageShapes()) {
         if (shape.type === 'drain-port' || shape.type === 'inlet-port' || shape.type === 'built-in-probe') {
           const pointData = (shape.props as any).pointData;
           if (pointData?.position) {
-            fixedShapes.push({
+            anchorPoints.push({
               position: pointData.position,
               label: pointData.label || shape.type,
               type: shape.type,
             });
-            if (shape.type === 'drain-port' || shape.type === 'inlet-port') {
-              extraFixedPoints.push({
-                position: pointData.position,
-                label: pointData.label || shape.type,
-                type: shape.type,
-              });
-            }
           }
         }
       }
     }
-    // Add vent ports from chamber data
-    const ventPorts = chamber.ventPorts ?? [];
-    ventPorts.forEach((pos, i) => {
-      fixedShapes.push({ position: pos, label: `排气口${i + 1}`, type: 'vent-port' });
-    });
 
-    const newPoints = uniformPlacement(chamber, pointCount, extraFixedPoints);
+    const newPoints = uniformPlacement(chamber, pointCount, { anchorPoints });
     set({ points: newPoints });
 
     if (editor && chamberShapeId) {
-      syncPointsToCanvas(editor, chamberShapeId, chamber, newPoints, fixedShapes)
+      syncPointsToCanvas(editor, chamberShapeId, chamber, newPoints, anchorPoints)
     }
   },
 

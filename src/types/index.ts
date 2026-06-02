@@ -28,6 +28,27 @@ export interface Nozzle {
   position: Point3D;  // 3D position on the vessel
 }
 
+/** 房间内其他设备（仅视觉上下文，不参与布点） */
+export interface RoomDevice {
+  name: string;
+  dimensions: ChamberDimensions;
+  position: Point3D;
+}
+
+/** 门的位置标记 */
+export interface DoorMarker {
+  position: Point3D;
+  label?: string;
+}
+
+/** 房间视觉上下文（可选，仅用于渲染） */
+export interface RoomContext {
+  roomDimensions: ChamberDimensions;
+  offset: Point3D;
+  devices: RoomDevice[];
+  doors: DoorMarker[];
+}
+
 /** 腔室定义 */
 export interface Chamber {
   type: ChamberType;
@@ -38,6 +59,7 @@ export interface Chamber {
   ventPorts?: Point3D[];  // 排气口/冷点位置
   nozzles?: Nozzle[];
   hasCoil?: boolean;
+  roomContext?: RoomContext;
 }
 
 /** 探头点位 */

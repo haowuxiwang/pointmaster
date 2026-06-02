@@ -4,21 +4,15 @@ import { useProjectStore } from '@/store/projectStore'
 export default function AutoPlacePanel() {
   const autoPlace = useProjectStore((s) => s.autoPlace)
   const points = useProjectStore((s) => s.points)
-  const editor = useProjectStore((s) => s.editor)
   const [totalCount, setTotalCount] = useState(12)
   const [includeCenter, setIncludeCenter] = useState(true)
   const [includeDrainPorts, setIncludeDrainPorts] = useState(false)
   const [includeInletPorts, setIncludeInletPorts] = useState(false)
+  const [includeBuiltInProbes, setIncludeBuiltInProbes] = useState(false)
 
-  const getEstimatedCount = () => {
+  const getMandatoryCount = () => {
     let count = 8 // 8 corners
     if (includeCenter) count += 1
-    // Read device component counts from canvas shapes, not from store.points
-    if (editor) {
-      const shapes = editor.getCurrentPageShapes()
-      if (includeDrainPorts) count += shapes.filter((s) => s.type === 'drain-port').length
-      if (includeInletPorts) count += shapes.filter((s) => s.type === 'inlet-port').length
-    }
     return count
   }
 
@@ -35,6 +29,7 @@ export default function AutoPlacePanel() {
       includeCenter,
       includeDrainPorts,
       includeInletPorts,
+      includeBuiltInProbes,
     })
   }
 
@@ -52,7 +47,7 @@ export default function AutoPlacePanel() {
           onChange={(e) => setTotalCount(Number(e.target.value))}
           className="w-full border rounded px-2 py-1 text-sm"
         />
-        <p className="text-xs text-gray-400">包含 8 个角点 + 均匀分布点</p>
+        <p className="text-xs text-gray-400">包含角点和中心点，端口附近的探头从总数中分配</p>
       </div>
 
       {/* Options */}
@@ -73,7 +68,7 @@ export default function AutoPlacePanel() {
             onChange={(e) => setIncludeDrainPorts(e.target.checked)}
             className="rounded"
           />
-          包含排水口位置
+          在排水口附近放置探头
         </label>
         <label className="flex items-center gap-2 text-xs text-gray-600">
           <input
@@ -82,14 +77,26 @@ export default function AutoPlacePanel() {
             onChange={(e) => setIncludeInletPorts(e.target.checked)}
             className="rounded"
           />
-          包含进气口位置
+          在进气口附近放置探头
+        </label>
+        <label className="flex items-center gap-2 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={includeBuiltInProbes}
+            onChange={(e) => setIncludeBuiltInProbes(e.target.checked)}
+            className="rounded"
+          />
+          在自带探头附近放置探头
         </label>
       </div>
 
       {/* Estimated count */}
       <div className="bg-gray-50 rounded p-2">
         <p className="text-xs text-gray-500">
-          预估：{getEstimatedCount()} 个固定点 + {Math.max(0, totalCount - getEstimatedCount())} 个均匀分布点
+          共生成 {totalCount} 个探头点位
+          {getMandatoryCount() >= totalCount && (
+            <span className="text-orange-500">（角点较多，部分角点可能不包含）</span>
+          )}
         </p>
       </div>
 
@@ -105,9 +112,10 @@ export default function AutoPlacePanel() {
       <div className="text-xs text-gray-400 space-y-1">
         <p>提示：</p>
         <ul className="list-disc list-inside space-y-0.5">
+          <li>先放置排水口、进气口、自带探头，再执行布点</li>
+          <li>勾选的端口位置会自动放置探头点</li>
           <li>布点后可拖动调整位置</li>
           <li>双击标签可编辑名称</li>
-          <li>在点位列表中可删除单个点</li>
         </ul>
       </div>
     </div>

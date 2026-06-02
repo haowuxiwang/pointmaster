@@ -49,18 +49,33 @@ function distance3D(a: Point3D, b: Point3D): number {
   return Math.sqrt(dx * dx + dy * dy + dz * dz)
 }
 
+function nearbyTypeLabel(type: string): string | null {
+  switch (type) {
+    case 'nearby-drain-port': return '靠近排水口'
+    case 'nearby-inlet-port': return '靠近进气口'
+    case 'nearby-built-in-probe': return '靠近自带探头'
+    case 'vent-port': return '靠近排气口冷点'
+    default: return null
+  }
+}
+
 function findNearbySpecial(
   point: ProbePointData,
   fixedShapes: FixedShape[],
   threshold: number = 150,
 ): string | null {
+  // Check the point's own property type first (set by uniformPlacement anchor logic)
+  const selfLabel = nearbyTypeLabel(point.properties?.type ?? '')
+  if (selfLabel) return selfLabel
+
+  // Fall back to distance-based check against canvas fixed shapes
   for (const fs of fixedShapes) {
     const dist = distance3D(point.position, fs.position)
     if (dist < threshold) {
       switch (fs.type) {
         case 'drain-port': return '靠近排水口'
         case 'inlet-port': return '靠近进气口'
-        case 'built-in-probe': return '与自身探头绑一起'
+        case 'built-in-probe': return '靠近自带探头'
         case 'vent-port': return '靠近排气口冷点'
         default: return `靠近${fs.label}`
       }

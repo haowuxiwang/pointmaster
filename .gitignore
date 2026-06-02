@@ -6,3 +6,10 @@ build
 *.local
 .env
 .env.*
+
+# Temporary files
+20260*.md
+*.jpeg
+*.jpg
+*.png
+scripts/

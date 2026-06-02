@@ -8,6 +8,9 @@
     "electron:compile": "tsc -p tsconfig.electron.json",
     "electron:dev": "npm run electron:compile && concurrently -k \"vite\" \"wait-on http://localhost:3000 && NODE_ENV=development electron .\"",
     "electron:build": "npm run build && npm run electron:compile && electron-builder",
+    "electron:build:nsis": "npm run build && npm run electron:compile && electron-builder --win nsis",
+    "electron:build:portable": "npm run build && npm run electron:compile && electron-builder --win portable",
+    "electron:build:zip": "npm run build && npm run electron:compile && electron-builder --win dir && node scripts/zip-portable.js",
     "preview": "vite preview",
     "test": "vitest run"
   },
@@ -22,6 +25,7 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -41,6 +45,7 @@
   "build": {
     "appId": "com.validation-layout.app",
     "productName": "Validation Layout",
+    "artifactName": "${productName}-${version}-${target}.${ext}",
     "directories": {
       "output": "release"
     },
@@ -49,13 +54,29 @@
       "dist-electron/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "mac": {
       "target": "dmg"
     },
     "linux": {
       "target": "AppImage"
+    },
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
     }
   }
 }

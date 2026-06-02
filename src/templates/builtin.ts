@@ -110,4 +110,29 @@ export const builtinTemplates: EquipmentTemplate[] = [
     },
     defaultPointCount: 12,
   },
+  {
+    id: 'shaker-room',
+    name: '摇瓶机房间',
+    category: '摇瓶机',
+    chamber: {
+      type: 'cuboid',
+      name: '摇瓶机',
+      dimensions: { width: 1200, depth: 800, height: 1500, layers: 3 },
+      roomContext: {
+        roomDimensions: { width: 4000, depth: 3000, height: 2500 },
+        offset: { x: 1400, y: 1100, z: 0 },
+        devices: [
+          {
+            name: '空调机组',
+            dimensions: { width: 600, depth: 600, height: 1800 },
+            position: { x: 3200, y: 1200, z: 0 },
+          },
+        ],
+        doors: [
+          { position: { x: 0, y: 1500, z: 0 }, label: '门' },
+        ],
+      },
+    },
+    defaultPointCount: 12,
+  },
 ]

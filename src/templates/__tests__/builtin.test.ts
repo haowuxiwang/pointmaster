@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { builtinTemplates } from '../builtin'
 
 describe('builtinTemplates', () => {
-  it('contains 9 templates', () => {
-    expect(builtinTemplates).toHaveLength(9)
+  it('contains 10 templates', () => {
+    expect(builtinTemplates).toHaveLength(10)
   })
 
   it('each template has required fields', () => {
@@ -67,6 +67,7 @@ describe('builtinTemplates', () => {
     expect(ids).toContain('oven')
     expect(ids).toContain('seed-tank')
     expect(ids).toContain('fermenter-3stage')
+    expect(ids).toContain('shaker-room')
   })
 
   it('layers are positive integers when specified', () => {

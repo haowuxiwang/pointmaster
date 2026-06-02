@@ -5,16 +5,18 @@ import NewProjectDialog from './dialogs/NewProjectDialog'
 import PointListPanel from './panels/PointListPanel'
 import TemplatePanel from './panels/TemplatePanel'
 import AutoPlacePanel from './panels/AutoPlacePanel'
+import ChamberPropertiesPanel from './panels/ChamberPropertiesPanel'
 import ToastContainer, { showToast } from './Toast'
-import { exportToSVG } from '@/core/export/svgExport'
+import { exportToSVG, type ExportMetadata } from '@/core/export/svgExport'
 import { exportToPNG } from '@/core/export/pngExport'
 import { useProjectStore } from '@/store/projectStore'
 import { saveProjectToFile, loadProjectFromFile, getRecentProjects } from '@/utils/fileIO'
 
 export default function Layout() {
   const [activeTool, setActiveTool] = useState('select')
-  const [activeTab, setActiveTab] = useState<'points' | 'templates' | 'autoplace' | 'recent'>('points')
+  const [activeTab, setActiveTab] = useState<'points' | 'templates' | 'autoplace' | 'recent' | 'device'>('points')
   const [showNewProject, setShowNewProject] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [exportScale, setExportScale] = useState(2)
 
   const saveProject = useProjectStore((s) => s.saveProject)
@@ -25,6 +27,7 @@ export default function Layout() {
   const points = useProjectStore((s) => s.points)
   const chamber = useProjectStore((s) => s.chamber)
   const currentZLevel = useProjectStore((s) => s.currentZLevel)
+  const projectName = useProjectStore((s) => s.projectName)
 
   // Show new project dialog on first load
   useEffect(() => {
@@ -74,7 +77,12 @@ export default function Layout() {
       })
       .catch((err) => {
         if (err.message !== 'cancelled') {
-          showToast('打开失败: ' + err.message, 'error')
+          const msg = err instanceof SyntaxError
+            ? '文件格式损坏，无法解析'
+            : err.message === 'Invalid project file format'
+              ? '项目文件格式不正确'
+              : err.message
+          showToast('打开失败: ' + msg, 'error')
         }
       })
   }
@@ -88,26 +96,50 @@ export default function Layout() {
     }
   }
 
+  const getExportMetadata = (): ExportMetadata => {
+    const now = new Date()
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+    return {
+      projectName,
+      chamberName: chamber.name,
+      pointCount: points.length,
+      date: dateStr,
+    }
+  }
+
+  const getExportFilename = (ext: string) => {
+    const now = new Date()
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+    const safeName = projectName.replace(/[<>:"/\\|?*]/g, '_')
+    return `${safeName}_${dateStr}.${ext}`
+  }
+
   const handleExportSVG = async () => {
     if (!editor) { showToast('编辑器未初始化', 'error'); return }
     try {
-      const svgString = await exportToSVG(editor)
+      const svgString = await exportToSVG(editor, getExportMetadata())
       const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
-      downloadBlob(blob, 'layout.svg')
+      downloadBlob(blob, getExportFilename('svg'))
       showToast('SVG 已导出', 'success')
-    } catch {
-      showToast('导出 SVG 失败', 'error')
+    } catch (err) {
+      const msg = (err as Error).message === 'No shapes to export'
+        ? '画布为空，请先添加设备或点位'
+        : '导出 SVG 失败'
+      showToast(msg, 'error')
     }
   }
 
   const handleExportPNG = async () => {
     if (!editor) { showToast('编辑器未初始化', 'error'); return }
     try {
-      const blob = await exportToPNG(editor, exportScale)
-      downloadBlob(blob, 'layout.png')
+      const blob = await exportToPNG(editor, exportScale, getExportMetadata())
+      downloadBlob(blob, getExportFilename('png'))
       showToast('PNG 已导出', 'success')
-    } catch {
-      showToast('导出 PNG 失败', 'error')
+    } catch (err) {
+      const msg = (err as Error).message === 'No shapes to export'
+        ? '画布为空，请先添加设备或点位'
+        : '导出 PNG 失败'
+      showToast(msg, 'error')
     }
   }
 
@@ -137,6 +169,7 @@ export default function Layout() {
           </div>
           <button className="hover:text-gray-800" onClick={() => editor?.undo()}>撤回</button>
           <button className="hover:text-gray-800" onClick={() => editor?.redo()}>重做</button>
+          <button className="hover:text-gray-800 ml-2" onClick={() => setShowHelp(true)}>?</button>
         </nav>
       </header>
 
@@ -161,11 +194,13 @@ export default function Layout() {
         <aside className="w-64 bg-white border-l border-gray-200 overflow-y-auto">
           <div className="flex border-b border-gray-200">
             <TabButton label="点位" active={activeTab === 'points'} onClick={() => setActiveTab('points')} />
+            <TabButton label="设备" active={activeTab === 'device'} onClick={() => setActiveTab('device')} />
             <TabButton label="布点" active={activeTab === 'autoplace'} onClick={() => setActiveTab('autoplace')} />
             <TabButton label="模板" active={activeTab === 'templates'} onClick={() => setActiveTab('templates')} />
             <TabButton label="最近" active={activeTab === 'recent'} onClick={() => setActiveTab('recent')} />
           </div>
           {activeTab === 'points' && <PointListPanel />}
+          {activeTab === 'device' && <ChamberPropertiesPanel />}
           {activeTab === 'autoplace' && <AutoPlacePanel />}
           {activeTab === 'templates' && <TemplatePanel />}
           {activeTab === 'recent' && (
@@ -200,6 +235,43 @@ export default function Layout() {
       </footer>
       <NewProjectDialog open={showNewProject} onClose={() => setShowNewProject(false)} />
       <ToastContainer />
+      {showHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl w-[520px] max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b">
+              <h2 className="text-base font-semibold">使用帮助</h2>
+              <button onClick={() => setShowHelp(false)} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 text-sm text-gray-600 space-y-4">
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">快速开始</h3>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>点击「新建」选择设备模板或自定义尺寸</li>
+                  <li>切换到「布点」标签，设置点数后点击「执行布点」</li>
+                  <li>使用左侧工具栏手动添加特殊点位（排水口、进气口等）</li>
+                  <li>拖拽点位微调位置，双击编辑标签</li>
+                  <li>点击「导出PNG」或「导出SVG」保存布点图</li>
+                </ol>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">快捷键</h3>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <span>Ctrl+S</span><span>保存项目</span>
+                  <span>Ctrl+O</span><span>打开项目</span>
+                  <span>Ctrl+Z</span><span>撤销</span>
+                  <span>Ctrl+Y</span><span>重做</span>
+                  <span>Esc</span><span>退出当前工具</span>
+                  <span>滚轮</span><span>缩放画布</span>
+                </div>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">坐标系统</h3>
+                <p className="text-xs">所有尺寸单位为毫米(mm)。X轴=宽度，Y轴=深度，Z轴=高度。使用右侧Z滑块切换查看不同高度层的点位。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
