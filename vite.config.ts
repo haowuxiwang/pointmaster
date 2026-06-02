@@ -13,4 +13,15 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  build: {
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          tldraw: ['@tldraw/tldraw'],
+          react: ['react', 'react-dom'],
+        },
+      },
+    },
+  },
 })

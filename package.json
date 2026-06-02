@@ -44,7 +44,7 @@
   },
   "build": {
     "appId": "com.validation-layout.app",
-    "productName": "Validation Layout",
+    "productName": "PointMaster",
     "artifactName": "${productName}-${version}-${target}.${ext}",
     "directories": {
       "output": "release"
@@ -74,6 +74,12 @@
     },
     "linux": {
       "target": "AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "electronDownload": {
       "mirror": "https://npmmirror.com/mirrors/electron/"

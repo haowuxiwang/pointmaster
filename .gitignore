@@ -2,14 +2,16 @@ node_modules
 dist
 dist-electron
 release
-build
 *.local
 .env
 .env.*
+
+# Build output (keep icon files)
+build/*
+!build/icon.*
 
 # Temporary files
 20260*.md
 *.jpeg
 *.jpg
 *.png
-scripts/
