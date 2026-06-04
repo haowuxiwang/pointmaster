@@ -15,3 +15,11 @@ build/*
 *.jpeg
 *.jpg
 *.png
+*.pdf
+*.jfif
+
+# MCP session artifacts
+.playwright-mcp/
+
+# Reference materials
+point/
