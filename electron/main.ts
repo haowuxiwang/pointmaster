@@ -31,26 +31,38 @@ app.on('activate', () => {
 })
 
 ipcMain.handle('save-file', async (_event, content: string, defaultName: string) => {
-  const { filePath } = await dialog.showSaveDialog({
-    defaultPath: defaultName,
-    filters: [{ name: 'JSON', extensions: ['json'] }],
-  })
-  if (filePath) {
-    const fs = await import('fs/promises')
-    await fs.writeFile(filePath, content, 'utf-8')
-    return filePath
+  try {
+    const { filePath } = await dialog.showSaveDialog({
+      defaultPath: defaultName,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+    if (filePath) {
+      const fs = await import('fs/promises')
+      await fs.writeFile(filePath, content, 'utf-8')
+      return filePath
+    }
+    return null
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    dialog.showErrorBox('保存失败', `无法保存文件: ${message}`)
+    return null
   }
-  return null
 })
 
 ipcMain.handle('open-file', async () => {
-  const { filePaths } = await dialog.showOpenDialog({
-    filters: [{ name: 'JSON', extensions: ['json'] }],
-    properties: ['openFile'],
-  })
-  if (filePaths[0]) {
-    const fs = await import('fs/promises')
-    return await fs.readFile(filePaths[0], 'utf-8')
+  try {
+    const { filePaths } = await dialog.showOpenDialog({
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      properties: ['openFile'],
+    })
+    if (filePaths[0]) {
+      const fs = await import('fs/promises')
+      return await fs.readFile(filePaths[0], 'utf-8')
+    }
+    return null
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    dialog.showErrorBox('打开失败', `无法读取文件: ${message}`)
+    return null
   }
-  return null
 })
