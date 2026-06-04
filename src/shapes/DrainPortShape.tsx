@@ -86,6 +86,8 @@ export class DrainPortShapeUtil extends ShapeUtil<DrainPortShape> {
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.stopPropagation()
                   const val = editingValues.get(shape.id) ?? label
                   editingValues.delete(shape.id)
                   if (val !== label) {
@@ -98,6 +100,8 @@ export class DrainPortShapeUtil extends ShapeUtil<DrainPortShape> {
                   this.editor.setEditingShape(null)
                 }
                 if (e.key === 'Escape') {
+                  e.preventDefault()
+                  e.stopPropagation()
                   editingValues.delete(shape.id)
                   this.editor.setEditingShape(null)
                 }

@@ -125,3 +125,15 @@ export interface PlacementParams {
   includeInletPorts?: boolean;
   includeBuiltInProbes?: boolean;
 }
+
+/** Shape types that carry pointData */
+export type PointShapeType = 'probe-point' | 'drain-port' | 'inlet-port' | 'built-in-probe'
+
+export const POINT_SHAPE_TYPES: ReadonlySet<string> = new Set<PointShapeType>([
+  'probe-point', 'drain-port', 'inlet-port', 'built-in-probe',
+])
+
+/** Type guard: check if a tldraw shape has pointData */
+export function hasPointData(shape: { type: string; props: Record<string, unknown> }): shape is typeof shape & { type: PointShapeType; props: { pointData: ProbePointData } } {
+  return POINT_SHAPE_TYPES.has(shape.type) && 'pointData' in shape.props && shape.props.pointData != null
+}

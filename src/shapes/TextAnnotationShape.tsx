@@ -80,6 +80,8 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
+                  e.preventDefault()
+                  e.stopPropagation()
                   editingValues.delete(shape.id)
                   this.editor.setEditingShape(null)
                 }

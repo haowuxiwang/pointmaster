@@ -1,5 +1,5 @@
 import { Point2D, Nozzle } from '@/types';
-import { project3Dto2D, CHAMBER_SCALE } from '@/core/projection/isometric';
+import { project3Dto2D, CHAMBER_SCALE, CYLINDER_COMPRESSION } from '@/core/projection/isometric';
 
 // ─── Cuboid wireframe ───────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ export function cylinderPath(
   // Origin at center-bottom of cylinder
   // x = horizontal, y = vertical (negative = up)
   const r = radius * scale;
-  const ry = r * 0.35; // Ellipse minor radius (perspective compression)
+  const ry = r * CYLINDER_COMPRESSION; // Ellipse minor radius (perspective compression)
   const h = height * scale;
   const topY = -h;
   const botY = 0;
@@ -214,10 +214,13 @@ export function cylinderPath(
       const nz = nozzle.position.z;
 
       // Determine nozzle category based on 3D position
-      const isOnTop = nz > height * 0.85;
-      const isOnBottom = nz < height * 0.15;
-      const isLeftSide = nx < -radius * 0.3;
-      const isRightSide = nx > radius * 0.3;
+      const TOP_ZONE = 0.85    // above this ratio → top nozzle
+      const BOTTOM_ZONE = 0.15 // below this ratio → bottom nozzle
+      const SIDE_ZONE = 0.3    // beyond this ratio from center → side nozzle
+      const isOnTop = nz > height * TOP_ZONE;
+      const isOnBottom = nz < height * BOTTOM_ZONE;
+      const isLeftSide = nx < -radius * SIDE_ZONE;
+      const isRightSide = nx > radius * SIDE_ZONE;
 
       // Calculate 2D position and stub direction
       let wallX: number;

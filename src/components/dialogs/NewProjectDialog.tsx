@@ -32,6 +32,8 @@ export default function NewProjectDialog({ open, onClose }: Props) {
 
   const handleCustom = () => {
     if (!name.trim()) return
+    if (width <= 0 || depth <= 0 || height <= 0) return
+    if (shape === 'cylinder' && (radius <= 0 || radius > Math.min(width, depth) / 2)) return
     setProjectName(name.trim())
     setChamber({
       type: shape,
@@ -111,15 +113,15 @@ export default function NewProjectDialog({ open, onClose }: Props) {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">宽度 (mm)</label>
-                  <input type="number" value={width} onChange={(e) => setWidth(+e.target.value)} className="w-full border rounded px-3 py-1.5 text-sm" />
+                  <input type="number" min={1} max={10000} value={width} onChange={(e) => setWidth(Math.max(1, Math.min(10000, +e.target.value || 1)))} className="w-full border rounded px-3 py-1.5 text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">深度 (mm)</label>
-                  <input type="number" value={depth} onChange={(e) => setDepth(+e.target.value)} className="w-full border rounded px-3 py-1.5 text-sm" />
+                  <input type="number" min={1} max={10000} value={depth} onChange={(e) => setDepth(Math.max(1, Math.min(10000, +e.target.value || 1)))} className="w-full border rounded px-3 py-1.5 text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">高度 (mm)</label>
-                  <input type="number" value={height} onChange={(e) => setHeight(+e.target.value)} className="w-full border rounded px-3 py-1.5 text-sm" />
+                  <input type="number" min={1} max={10000} value={height} onChange={(e) => setHeight(Math.max(1, Math.min(10000, +e.target.value || 1)))} className="w-full border rounded px-3 py-1.5 text-sm" />
                 </div>
               </div>
               <div>
@@ -136,7 +138,7 @@ export default function NewProjectDialog({ open, onClose }: Props) {
               {shape === 'cylinder' && (
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">半径 (mm)</label>
-                  <input type="number" value={radius} onChange={(e) => setRadius(+e.target.value)} className="w-full border rounded px-3 py-1.5 text-sm" />
+                  <input type="number" min={1} max={Math.floor(Math.min(width, depth) / 2)} value={radius} onChange={(e) => setRadius(Math.max(1, Math.min(Math.floor(Math.min(width, depth) / 2), +e.target.value || 1)))} className="w-full border rounded px-3 py-1.5 text-sm" />
                 </div>
               )}
               <button

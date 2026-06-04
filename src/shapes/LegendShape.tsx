@@ -140,9 +140,13 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
+                    e.preventDefault()
+                    e.stopPropagation()
                     this.editor.setEditingShape(null)
                   }
                   if (e.key === 'Escape') {
+                    e.preventDefault()
+                    e.stopPropagation()
                     editingValues.delete(shape.id)
                     this.editor.setEditingShape(null)
                   }
@@ -168,9 +172,13 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
+                        e.preventDefault()
+                        e.stopPropagation()
                         this.editor.setEditingShape(null)
                       }
                       if (e.key === 'Escape') {
+                        e.preventDefault()
+                        e.stopPropagation()
                         editingValues.delete(`${shape.id}:entry-${i}-label`)
                         this.editor.setEditingShape(null)
                       }
@@ -194,9 +202,13 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
+                        e.preventDefault()
+                        e.stopPropagation()
                         this.editor.setEditingShape(null)
                       }
                       if (e.key === 'Escape') {
+                        e.preventDefault()
+                        e.stopPropagation()
                         editingValues.delete(`${shape.id}:entry-${i}-desc`)
                         this.editor.setEditingShape(null)
                       }

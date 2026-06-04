@@ -44,6 +44,7 @@ describe('saveProjectToFile', () => {
   })
 
   it('creates download link and clicks it', () => {
+    vi.useFakeTimers()
     const mockClick = vi.fn()
     const mockAnchor = {
       href: '',
@@ -60,7 +61,10 @@ describe('saveProjectToFile', () => {
     expect(document.createElement).toHaveBeenCalledWith('a')
     expect(mockAnchor.download).toBe('测试项目.vlp.json')
     expect(mockClick).toHaveBeenCalled()
+
+    vi.advanceTimersByTime(1000)
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
+    vi.useRealTimers()
   })
 
   it('adds project to recent list', () => {

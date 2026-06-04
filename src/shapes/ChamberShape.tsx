@@ -1,6 +1,6 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Rectangle2d } from 'tldraw'
 import { cuboidPath, cylinderPath } from './utils'
-import { project3Dto2D, CHAMBER_SCALE } from '@/core/projection/isometric'
+import { project3Dto2D, CHAMBER_SCALE, CYLINDER_COMPRESSION } from '@/core/projection/isometric'
 import type { Chamber, RoomContext } from '@/types'
 
 type ChamberShape = TLBaseShape<'chamber', {
@@ -114,15 +114,26 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
       const radius = chamberData.radius ?? Math.min(width, depth) / 2
       const r = radius * CHAMBER_SCALE
       const h = height * CHAMBER_SCALE
-      const ry = r * 0.35
-      const stubLength = 12 * CHAMBER_SCALE
+      const ry = r * CYLINDER_COMPRESSION
+      const stubLength = 15 * CHAMBER_SCALE  // matches cylinderPath
+      const stubHalf = 4 * CHAMBER_SCALE     // flange half-width
       const headHeight = r * 0.3
       const supportHeight = 50 * CHAMBER_SCALE
+      // Agitator shaft extends above top
+      const agitatorTop = -h - h * 0.15
+      // Nozzle label offset (worst case: labelOffset + stubHalf)
+      const nozzleLabelExtent = 4 * CHAMBER_SCALE + stubHalf + 2 * CHAMBER_SCALE
+
+      const minX = -(r + stubLength + stubHalf + nozzleLabelExtent)
+      const maxX = r + stubLength + stubHalf + nozzleLabelExtent
+      const minY = Math.min(agitatorTop, -h - headHeight - ry) - 15
+      const maxY = supportHeight + 10
+
       return new Rectangle2d({
-        x: -(r + stubLength) - 10,
-        y: -h - headHeight - ry - 15,
-        width: (r + stubLength) * 2 + 20,
-        height: h + headHeight + ry + supportHeight + 30,
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
         isFilled: false,
       })
     }
@@ -238,6 +249,8 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
+              e.preventDefault()
+              e.stopPropagation()
               const val = editingValues.get(shape.id) ?? chamberData.name
               editingValues.delete(shape.id)
               if (val !== chamberData.name) {
@@ -250,6 +263,8 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
               this.editor.setEditingShape(null)
             }
             if (e.key === 'Escape') {
+              e.preventDefault()
+              e.stopPropagation()
               editingValues.delete(shape.id)
               this.editor.setEditingShape(null)
             }

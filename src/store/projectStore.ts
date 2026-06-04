@@ -97,6 +97,10 @@ interface ProjectState {
   editor: Editor | null;
   chamberShapeId: TLShapeId | null;
   createdAt: string | null;
+  /** Pending project data waiting for editor to be ready (deferred load) */
+  pendingProject: ProjectData | null;
+  /** Pending template waiting for editor to be ready (deferred load) */
+  pendingTemplate: EquipmentTemplate | null;
 
   setEditor: (editor: Editor | null) => void;
   setProjectName: (name: string) => void;
@@ -114,6 +118,7 @@ interface ProjectState {
   saveProject: () => ProjectData;
   loadProject: (data: ProjectData) => void;
   loadTemplate: (template: EquipmentTemplate) => void;
+  flushPendingLoad: () => void;
 }
 
 const defaultChamber: Chamber = {
@@ -133,6 +138,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   editor: null,
   chamberShapeId: null,
   createdAt: null,
+  pendingProject: null,
+  pendingTemplate: null,
 
   setEditor: (editor) => set({ editor }),
   setProjectName: (name) => set({ projectName: name }),
@@ -141,7 +148,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set((s) => ({
       chamber,
       points: [],
-      currentZLevel: Math.min(s.currentZLevel, chamber.dimensions.height),
+      currentZLevel: Math.max(0, Math.min(s.currentZLevel, chamber.dimensions.height)),
     }));
 
     if (editor) {
@@ -210,7 +217,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
   setPoints: (points) => set({ points }),
-  addPoint: (point) => set((s) => ({ points: [...s.points, point] })),
+  addPoint: (point) => {
+    set((s) => ({ points: [...s.points, point] }))
+    const { editor, chamberShapeId } = get()
+    if (editor && chamberShapeId) {
+      createPointShape(editor, chamberShapeId, point, get().points.length - 1)
+    }
+  },
   removePoint: (label) => {
     const { editor } = get()
     set((s) => ({ points: s.points.filter((p) => p.label !== label) }))
@@ -222,13 +235,41 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (shape) editor.deleteShapes([shape.id])
     }
   },
-  updatePoint: (label, updates) => set((s) => ({
-    points: s.points.map((p) => p.label === label ? { ...p, ...updates } : p),
-  })),
-  updatePointPosition: (label, position) => set((s) => ({
-    points: s.points.map((p) => p.label === label ? { ...p, position } : p),
-  })),
-  setCurrentZLevel: (z) => set({ currentZLevel: z }),
+  updatePoint: (label, updates) => {
+    set((s) => ({
+      points: s.points.map((p) => p.label === label ? { ...p, ...updates } : p),
+    }))
+    const { editor } = get()
+    if (editor) {
+      const shape = editor.getCurrentPageShapes().find(
+        (s) => ['probe-point', 'drain-port', 'inlet-port', 'built-in-probe'].includes(s.type)
+          && (s.props as any).pointData?.label === label
+      )
+      if (shape) {
+        editor.updateShape({ id: shape.id, type: shape.type as any, props: { pointData: { ...(shape.props as any).pointData, ...updates } } })
+      }
+    }
+  },
+  updatePointPosition: (label, position) => {
+    set((s) => ({
+      points: s.points.map((p) => p.label === label ? { ...p, position } : p),
+    }))
+    const { editor } = get()
+    if (editor) {
+      const shape = editor.getCurrentPageShapes().find(
+        (s) => ['probe-point', 'drain-port', 'inlet-port', 'built-in-probe'].includes(s.type)
+          && (s.props as any).pointData?.label === label
+      )
+      if (shape) {
+        const projected = project3Dto2D(position.x, position.y, position.z, CHAMBER_SCALE)
+        editor.updateShape({ id: shape.id, type: shape.type as any, x: projected.x, y: projected.y, props: { pointData: { ...(shape.props as any).pointData, position } } })
+      }
+    }
+  },
+  setCurrentZLevel: (z) => {
+    const { chamber } = get()
+    set({ currentZLevel: Math.max(0, Math.min(chamber.dimensions.height, z)) })
+  },
   setPointCount: (count) => set({ pointCount: count }),
 
   autoPlace: (params) => {
@@ -329,11 +370,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       chamber: data.chamber,
       points: data.points,
       createdAt: data.createdAt,
-      currentZLevel: Math.min(get().currentZLevel, data.chamber.dimensions.height),
+      currentZLevel: Math.max(0, Math.min(get().currentZLevel, data.chamber.dimensions.height)),
+      pendingProject: null,
+      pendingTemplate: null,
     });
 
     // Rebuild tldraw shapes
     const { editor } = get();
+    if (!editor) {
+      // Editor not ready yet — defer canvas rebuild
+      set({ pendingProject: data })
+      return
+    }
     if (editor) {
       const shapes = editor.getCurrentPageShapes();
       editor.deleteShapes(shapes.map((s) => s.id));
@@ -386,10 +434,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       chamber: template.chamber,
       points: [],
       projectName: template.name,
-      currentZLevel: Math.min(get().currentZLevel, template.chamber.dimensions.height),
+      currentZLevel: Math.max(0, Math.min(get().currentZLevel, template.chamber.dimensions.height)),
       createdAt: null,
+      pendingProject: null,
+      pendingTemplate: null,
     });
 
+    if (!editor) {
+      set({ pendingTemplate: template })
+      return
+    }
     if (editor) {
       // 清除现有形状
       const shapes = editor.getCurrentPageShapes();
@@ -409,6 +463,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         },
       });
       set({ chamberShapeId: chamberId });
+    }
+  },
+
+  flushPendingLoad: () => {
+    const { pendingProject, pendingTemplate, editor } = get()
+    if (!editor) return
+
+    if (pendingProject) {
+      set({ pendingProject: null })
+      get().loadProject(pendingProject)
+    } else if (pendingTemplate) {
+      set({ pendingTemplate: null })
+      get().loadTemplate(pendingTemplate)
     }
   },
 }));

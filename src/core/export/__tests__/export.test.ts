@@ -7,6 +7,7 @@ import { exportToPNG } from '../pngExport'
 function createMockEditor(hasShapes: boolean = true) {
   return {
     setEditingShape: () => {},
+    getEditingShapeId: () => null,
     getCurrentPageShapes: () => hasShapes ? [{ id: 'shape:1', type: 'probe-point' }] : [],
     getSvgString: async () => ({
       svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="white"/></svg>',
@@ -39,6 +40,7 @@ describe('exportToSVG', () => {
   it('throws error when getSvgString returns undefined', async () => {
     const editor = {
       setEditingShape: () => {},
+      getEditingShapeId: () => null,
       getCurrentPageShapes: () => [{ id: 'shape:1' }],
       getSvgString: async () => undefined,
     } as any
@@ -63,6 +65,7 @@ describe('exportToPNG', () => {
     let capturedOpts: any = null
     const editor = {
       setEditingShape: () => {},
+      getEditingShapeId: () => null,
       getCurrentPageShapes: () => [{ id: 'shape:1' }],
       toImage: async (_shapes: any[], opts?: any) => {
         capturedOpts = opts

@@ -2,11 +2,13 @@ import { type Editor, type TLShapeId } from 'tldraw'
 import type { ExportMetadata } from './svgExport'
 
 export async function exportToPNG(editor: Editor, scale: number = 2, metadata?: ExportMetadata): Promise<Blob> {
-  // Exit editing mode to avoid foreignObject issues in export
+  // Save and exit editing mode to avoid foreignObject issues in export
+  const prevEditingId = editor.getEditingShapeId()
   editor.setEditingShape(null)
 
   const shapes = editor.getCurrentPageShapes()
   if (shapes.length === 0) {
+    if (prevEditingId) editor.setEditingShape(prevEditingId)
     throw new Error('No shapes to export')
   }
 
@@ -35,9 +37,13 @@ export async function exportToPNG(editor: Editor, scale: number = 2, metadata?: 
 
     return result.blob
   } finally {
-    // Clean up temporary shape
+    // Clean up temporary shape (best-effort, don't mask original errors)
     if (tempShapeId) {
-      editor.deleteShapes([tempShapeId])
+      try { editor.deleteShapes([tempShapeId]) } catch { /* cleanup best-effort */ }
+    }
+    // Restore editing state
+    if (prevEditingId) {
+      try { editor.setEditingShape(prevEditingId) } catch { /* best-effort */ }
     }
   }
 }

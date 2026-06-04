@@ -9,6 +9,9 @@ export const DEFAULT_SCALE = 0.5;
 /** Chamber rendering scale used by ChamberShape and coordinate bridging */
 export const CHAMBER_SCALE = 0.2;
 
+/** Ellipse minor-axis compression ratio for cylinder 2D front view */
+export const CYLINDER_COMPRESSION = 0.35;
+
 const cosA = Math.cos(ISO_ANGLE);
 const sinA = Math.sin(ISO_ANGLE);
 

@@ -51,9 +51,19 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
   }
 
   getGeometry(shape: DimensionShape) {
+    const { from, to } = shape.props
+    const p1 = project3Dto2D(from.x, from.y, from.z, CHAMBER_SCALE)
+    const p2 = project3Dto2D(to.x, to.y, to.z, CHAMBER_SCALE)
+    const pad = 20
+    const minX = Math.min(p1.x, p2.x) - pad
+    const minY = Math.min(p1.y, p2.y) - pad - 15  // extra for label above
+    const maxX = Math.max(p1.x, p2.x) + pad
+    const maxY = Math.max(p1.y, p2.y) + pad
     return new Rectangle2d({
-      width: shape.props.w,
-      height: shape.props.h,
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
       isFilled: true,
     })
   }
@@ -98,6 +108,8 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.stopPropagation()
                   const val = editingValues.get(shape.id) ?? label
                   editingValues.delete(shape.id)
                   if (val !== label) {
@@ -110,6 +122,8 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
                   this.editor.setEditingShape(null)
                 }
                 if (e.key === 'Escape') {
+                  e.preventDefault()
+                  e.stopPropagation()
                   editingValues.delete(shape.id)
                   this.editor.setEditingShape(null)
                 }

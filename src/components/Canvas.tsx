@@ -15,6 +15,7 @@ import { BuiltInProbeTool } from '@/tools/BuiltInProbeTool'
 import { InletPortTool } from '@/tools/InletPortTool'
 import { useProjectStore } from '@/store/projectStore'
 import { unproject2Dto3D, CHAMBER_SCALE } from '@/core/projection/isometric'
+import { POINT_SHAPE_TYPES } from '@/types'
 
 const shapeUtils = [ChamberShapeUtil, ProbePointShapeUtil, TextAnnotationShapeUtil, DimensionShapeUtil, LegendShapeUtil, DrainPortShapeUtil, BuiltInProbeShapeUtil, InletPortShapeUtil]
 const tools = [ProbePointTool, DrainPortTool, BuiltInProbeTool, InletPortTool]
@@ -28,6 +29,9 @@ function EditorSync() {
 
   useEffect(() => {
     setEditor(editor)
+
+    // Flush any pending load that was waiting for editor
+    useProjectStore.getState().flushPendingLoad()
 
     // Initialize chamber position from store
     const initChamber = editor.getCurrentPageShapes().find((s) => s.type === 'chamber')
@@ -49,8 +53,6 @@ function EditorSync() {
       rafId.current = null
     }
 
-    const pointTypes = new Set(['probe-point', 'drain-port', 'inlet-port', 'built-in-probe'])
-
     // Listen for shape changes to sync position and labels
     const unsubscribe = editor.store.listen((entry) => {
       const changes = entry.changes
@@ -61,7 +63,7 @@ function EditorSync() {
         for (const record of Object.values(changes.added)) {
           if (record.typeName !== 'shape') continue
           const shape = record as any
-          if (!pointTypes.has(shape.type)) continue
+          if (!POINT_SHAPE_TYPES.has(shape.type)) continue
           const pd = shape.props?.pointData
           if (!pd?.label || !pd?.position) continue
           const store = useProjectStore.getState()
@@ -90,7 +92,7 @@ function EditorSync() {
         }
 
         // Handle probe/port changes — position sync only during drag
-        if (!pointTypes.has(shape.type)) continue
+        if (!POINT_SHAPE_TYPES.has(shape.type)) continue
         const oldLabel = prevShape?.props?.pointData?.label
         const newLabel = shape.props?.pointData?.label
         if (!oldLabel || !newLabel) continue
