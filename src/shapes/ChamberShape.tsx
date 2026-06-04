@@ -30,7 +30,7 @@ function renderRoomContext(roomCtx: RoomContext, scale: number) {
   ]
   const roomPath = roomEdges.map(([a, b]) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`).join(' ')
 
-  // Other devices (e.g. AC unit)
+  // Other devices (e.g. AC unit) - wireframe cuboid
   const devicePaths = devices.map(dev => {
     const dx = dev.position.x, dy = dev.position.y, dz = dev.position.z
     const dw = dev.dimensions.width, dd = dev.dimensions.depth, dh = dev.dimensions.height
@@ -38,10 +38,6 @@ function renderRoomContext(roomCtx: RoomContext, scale: number) {
       p(dx, dy, dz), p(dx + dw, dy, dz), p(dx + dw, dy + dd, dz), p(dx, dy + dd, dz),
       p(dx, dy, dz + dh), p(dx + dw, dy, dz + dh), p(dx + dw, dy + dd, dz + dh), p(dx, dy + dd, dz + dh),
     ]
-    // Only render visible faces (top, front, right)
-    const topPath = `M ${dv[4].x} ${dv[4].y} L ${dv[5].x} ${dv[5].y} L ${dv[6].x} ${dv[6].y} L ${dv[7].x} ${dv[7].y} Z`
-    const frontPath = `M ${dv[0].x} ${dv[0].y} L ${dv[1].x} ${dv[1].y} L ${dv[5].x} ${dv[5].y} L ${dv[4].x} ${dv[4].y} Z`
-    const rightPath = `M ${dv[1].x} ${dv[1].y} L ${dv[2].x} ${dv[2].y} L ${dv[6].x} ${dv[6].y} L ${dv[5].x} ${dv[5].y} Z`
     const edges = [
       [dv[0], dv[1]], [dv[1], dv[2]], [dv[2], dv[3]], [dv[3], dv[0]],
       [dv[4], dv[5]], [dv[5], dv[6]], [dv[6], dv[7]], [dv[7], dv[4]],
@@ -51,13 +47,20 @@ function renderRoomContext(roomCtx: RoomContext, scale: number) {
     // Label position: top center of device
     const labelX = (dv[4].x + dv[6].x) / 2
     const labelY = (dv[4].y + dv[6].y) / 2 - 8
-    return { topPath, frontPath, rightPath, edgesPath, labelX, labelY, name: dev.name }
+    return { edgesPath, labelX, labelY, name: dev.name }
   })
 
-  // Door markers
+  // Door markers - render as rectangle with label
+  const doorWidth = 800 // mm
+  const doorHeight = 2000 // mm
   const doorMarkers = doors.map(door => {
     const dp = p(door.position.x, door.position.y, door.position.z)
-    return { x: dp.x, y: dp.y, label: door.label ?? '门' }
+    // Project door dimensions for rectangle
+    const doorRight = p(door.position.x + doorWidth, door.position.y, door.position.z)
+    const doorTop = p(door.position.x, door.position.y, door.position.z + doorHeight)
+    const doorTopRight = p(door.position.x + doorWidth, door.position.y, door.position.z + doorHeight)
+    const doorRect = `M ${dp.x} ${dp.y} L ${doorRight.x} ${doorRight.y} L ${doorTopRight.x} ${doorTopRight.y} L ${doorTop.x} ${doorTop.y} Z`
+    return { x: dp.x, y: dp.y, label: door.label ?? '门', doorRect }
   })
 
   return { roomPath, devicePaths, doorMarkers }
@@ -102,10 +105,29 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
 
   getGeometry(shape: ChamberShape) {
     const { chamberData } = shape.props
-    const { width, depth, height } = chamberData.dimensions
+    const { type, dimensions } = chamberData
+    const { width, depth, height } = dimensions
     const p = (x: number, y: number, z: number) => project3Dto2D(x, y, z, CHAMBER_SCALE)
 
-    // Collect all vertices: main chamber + room context
+    if (type === 'cylinder') {
+      // 2D front view bounds
+      const radius = chamberData.radius ?? Math.min(width, depth) / 2
+      const r = radius * CHAMBER_SCALE
+      const h = height * CHAMBER_SCALE
+      const ry = r * 0.35
+      const stubLength = 12 * CHAMBER_SCALE
+      const headHeight = r * 0.3
+      const supportHeight = 50 * CHAMBER_SCALE
+      return new Rectangle2d({
+        x: -(r + stubLength) - 10,
+        y: -h - headHeight - ry - 15,
+        width: (r + stubLength) * 2 + 20,
+        height: h + headHeight + ry + supportHeight + 30,
+        isFilled: false,
+      })
+    }
+
+    // Cuboid: use 3D isometric projection for bounds
     const allPoints: Array<{ x: number; y: number }> = []
 
     // Main chamber vertices
@@ -154,10 +176,7 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     const { type, dimensions } = chamberData
     const { width, depth, height, layers = 1 } = dimensions
 
-    let faces: { path: string; fill: string }[] = []
-    let edgesPath: string = ''
     let layerPath: string = ''
-    let detailsPath: string = ''
     let headPath: string = ''
     let supportsPath: string = ''
     let nozzlesPath: string = ''
@@ -170,10 +189,13 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     let sideLines: string = ''
     let topEllipse: string = ''
     let isCylinder = false
+    let radius = 0
+    let visibleEdgesPath = ''
+    let hiddenEdgesPath = ''
 
     if (type === 'cylinder') {
       isCylinder = true
-      const radius = chamberData.radius ?? Math.min(width, depth) / 2
+      radius = chamberData.radius ?? Math.min(width, depth) / 2
       const result = cylinderPath(radius, height, 0.2, layers, chamberData.nozzles, chamberData.hasCoil)
       topEllipse = result.topEllipse
       bottomBackArc = result.bottomBackArc
@@ -187,16 +209,12 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
       nozzlesPath = result.nozzlesPath
       nozzleLabels = result.nozzleLabels
       coilPath = result.coilPath
-    } else if (type === 'polygon' && chamberData.vertices) {
-      const result = cuboidPath(width, depth, height, 0.2, layers)
-      faces = result.faces
-      edgesPath = result.edges
-      layerPath = result.layers
     } else {
+      // Cuboid (and polygon fallback): compute wireframe once
       const result = cuboidPath(width, depth, height, 0.2, layers)
-      faces = result.faces
-      edgesPath = result.edges
       layerPath = result.layers
+      visibleEdgesPath = result.visibleEdges
+      hiddenEdgesPath = result.hiddenEdges
     }
 
     const nameElement = isEditing ? (
@@ -245,31 +263,32 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     )
 
     if (isCylinder) {
+      // 2D front view agitator: vertical shaft + impeller blades
+      const r = radius * 0.2
+      const h = height * 0.2
+      const shaftPath = `M 0 ${h * 0.05} L 0 ${-h - h * 0.15}`
+      const bladeWidth = r * 0.5
+      const bladeHeight = 3
+      // Two sets of impeller blades at different heights
+      const bladeZ1 = -h * 0.4
+      const bladeZ2 = -h * 0.7
+      const bladesPath = [
+        `M ${-bladeWidth} ${bladeZ1 - bladeHeight} L ${bladeWidth} ${bladeZ1 - bladeHeight} L ${bladeWidth} ${bladeZ1 + bladeHeight} L ${-bladeWidth} ${bladeZ1 + bladeHeight} Z`,
+        `M ${-bladeWidth} ${bladeZ2 - bladeHeight} L ${bladeWidth} ${bladeZ2 - bladeHeight} L ${bladeWidth} ${bladeZ2 + bladeHeight} L ${-bladeWidth} ${bladeZ2 + bladeHeight} Z`,
+      ].join(' ')
+
       return (
         <SVGContainer>
-          <defs>
-            <linearGradient id="cylinderBody" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#d8d8d8" />
-              <stop offset="35%" stopColor="#f0f0f0" />
-              <stop offset="65%" stopColor="#e0e0e0" />
-              <stop offset="100%" stopColor="#b8b8b8" />
-            </linearGradient>
-            <linearGradient id="cylinderTop" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f5f5f5" />
-              <stop offset="100%" stopColor="#e0e0e0" />
-            </linearGradient>
-          </defs>
-
           {/* Back half of bottom ellipse (hidden line) */}
           <path d={bottomBackArc} fill="none" stroke="#999" strokeWidth={0.8} strokeDasharray="4 2" />
 
-          {/* Front face fill (curved body) */}
-          <path d={frontFill} fill="url(#cylinderBody)" stroke="none" />
+          {/* Front face fill (white, hides back lines) */}
+          <path d={frontFill} fill="#fff" stroke="none" />
 
-          {/* Top face fill */}
-          <path d={topFill} fill="url(#cylinderTop)" stroke="none" />
+          {/* Top face fill (white) */}
+          <path d={topFill} fill="#fff" stroke="none" />
 
-          {/* Layer ellipses */}
+          {/* Layer ellipses (dashed) */}
           {layerPath && (
             <path d={layerPath} fill="none" stroke="#999" strokeWidth={1.5} strokeDasharray="6 3" />
           )}
@@ -285,27 +304,33 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
 
           {/* Dished head */}
           {headPath && (
-            <path d={headPath} fill="none" stroke="#555" strokeWidth={0.8} />
+            <path d={headPath} fill="none" stroke="#000" strokeWidth={1} />
           )}
 
           {/* Support legs */}
           {supportsPath && (
-            <path d={supportsPath} fill="none" stroke="#555" strokeWidth={0.8} />
+            <path d={supportsPath} fill="none" stroke="#000" strokeWidth={0.8} />
           )}
+
+          {/* Agitator shaft */}
+          <path d={shaftPath} fill="none" stroke="#000" strokeWidth={0.8} />
+
+          {/* Agitator impeller blades */}
+          <path d={bladesPath} fill="none" stroke="#000" strokeWidth={0.6} />
 
           {/* Nozzles */}
           {nozzlesPath && (
-            <path d={nozzlesPath} fill="none" stroke="#555" strokeWidth={0.8} />
+            <path d={nozzlesPath} fill="none" stroke="#000" strokeWidth={0.8} />
           )}
 
-          {/* Coil */}
+          {/* Coil (dashed internal ellipses) */}
           {coilPath && (
-            <path d={coilPath} fill="none" stroke="#aaa" strokeWidth={0.6} strokeDasharray="3 2" />
+            <path d={coilPath} fill="none" stroke="#999" strokeWidth={0.6} strokeDasharray="3 2" />
           )}
 
           {/* Nozzle labels */}
           {nozzleLabels.map((nl, i) => (
-            <text key={i} x={nl.x} y={nl.y - 8} fontSize={8} fill="#555" textAnchor="middle">
+            <text key={i} x={nl.x} y={nl.y} fontSize={8} fill="#000" textAnchor="middle">
               {nl.name}
             </text>
           ))}
@@ -317,37 +342,33 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
 
     return (
       <SVGContainer>
-        {/* Room context (visual decoration, semi-transparent) */}
+        {/* Room context (wireframe, solid lines) */}
         {chamberData.roomContext && (() => {
           const ctx = renderRoomContext(chamberData.roomContext, CHAMBER_SCALE)
           return (
-            <g opacity={0.35}>
-              {/* Room outline - dashed */}
-              <path d={ctx.roomPath} fill="none" stroke="#666" strokeWidth={0.8} strokeDasharray="6 3" />
-              {/* Other devices */}
+            <g>
+              {/* Room outline - solid */}
+              <path d={ctx.roomPath} fill="none" stroke="#000" strokeWidth={1.0} />
+              {/* Other devices - wireframe edges only */}
               {ctx.devicePaths.map((dp, i) => (
                 <g key={`dev-${i}`}>
-                  <path d={dp.topPath} fill="#e8e8e8" stroke="none" />
-                  <path d={dp.frontPath} fill="#d0d0d0" stroke="none" />
-                  <path d={dp.rightPath} fill="#bbb" stroke="none" />
-                  <path d={dp.edgesPath} fill="none" stroke="#888" strokeWidth={0.6} />
-                  <text x={dp.labelX} y={dp.labelY} fontSize={9} fill="#666" textAnchor="middle">{dp.name}</text>
+                  <path d={dp.edgesPath} fill="none" stroke="#333" strokeWidth={0.8} />
+                  <text x={dp.labelX} y={dp.labelY} fontSize={10} fill="#000" textAnchor="middle">{dp.name}</text>
                 </g>
               ))}
-              {/* Door markers */}
+              {/* Door markers - rectangle + label */}
               {ctx.doorMarkers.map((dm, i) => (
-                <text key={`door-${i}`} x={dm.x} y={dm.y - 12} fontSize={10} fill="#c44" textAnchor="middle" fontWeight="bold">
-                  {dm.label}
-                </text>
+                <g key={`door-${i}`}>
+                  <path d={dm.doorRect} fill="none" stroke="#000" strokeWidth={1.0} />
+                  <text x={dm.x} y={dm.y - 6} fontSize={10} fill="#000" textAnchor="middle" fontWeight="bold">
+                    {dm.label}
+                  </text>
+                </g>
               ))}
             </g>
           )
         })()}
-        {/* Face fills */}
-        {faces.map((face, i) => (
-          <path key={i} d={face.path} fill={face.fill} stroke="none" />
-        ))}
-        {/* Layer lines */}
+        {/* Layer lines (dashed) */}
         {layerPath && (
           <path
             d={layerPath}
@@ -357,21 +378,24 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
             strokeDasharray="6 3"
           />
         )}
-        {/* Edges */}
-        <path
-          d={edgesPath}
-          fill="none"
-          stroke="#000"
-          strokeWidth={1}
-          strokeLinejoin="round"
-        />
-        {/* Details (head, supports, nozzles) */}
-        {detailsPath && (
+        {/* Hidden edges (dashed) */}
+        {hiddenEdgesPath && (
           <path
-            d={detailsPath}
+            d={hiddenEdgesPath}
             fill="none"
-            stroke="#555"
-            strokeWidth={0.8}
+            stroke="#000"
+            strokeWidth={0.7}
+            strokeDasharray="4 3"
+          />
+        )}
+        {/* Visible edges (solid) */}
+        {visibleEdgesPath && (
+          <path
+            d={visibleEdgesPath}
+            fill="none"
+            stroke="#000"
+            strokeWidth={1.2}
+            strokeLinejoin="round"
           />
         )}
         {nameElement}
@@ -387,72 +411,72 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     if (type === 'cylinder') {
       const radius = chamberData.radius ?? Math.min(width, depth) / 2
       const result = cylinderPath(radius, height, 0.2, layers, chamberData.nozzles, chamberData.hasCoil)
+      const r = radius * 0.2
+      const h = height * 0.2
+      const shaftPath = `M 0 ${h * 0.05} L 0 ${-h - h * 0.15}`
+      const bladeWidth = r * 0.5
+      const bladeHeight = 3
+      const bladeZ1 = -h * 0.4
+      const bladeZ2 = -h * 0.7
+      const bladesPath = [
+        `M ${-bladeWidth} ${bladeZ1 - bladeHeight} L ${bladeWidth} ${bladeZ1 - bladeHeight} L ${bladeWidth} ${bladeZ1 + bladeHeight} L ${-bladeWidth} ${bladeZ1 + bladeHeight} Z`,
+        `M ${-bladeWidth} ${bladeZ2 - bladeHeight} L ${bladeWidth} ${bladeZ2 - bladeHeight} L ${bladeWidth} ${bladeZ2 + bladeHeight} L ${-bladeWidth} ${bladeZ2 + bladeHeight} Z`,
+      ].join(' ')
 
       return (
         <g>
-          <defs>
-            <linearGradient id="cylinderBody" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#d8d8d8" />
-              <stop offset="35%" stopColor="#f0f0f0" />
-              <stop offset="65%" stopColor="#e0e0e0" />
-              <stop offset="100%" stopColor="#b8b8b8" />
-            </linearGradient>
-            <linearGradient id="cylinderTop" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f5f5f5" />
-              <stop offset="100%" stopColor="#e0e0e0" />
-            </linearGradient>
-          </defs>
           <path d={result.bottomBackArc} fill="none" stroke="#999" strokeWidth={0.8} strokeDasharray="4 2" />
-          <path d={result.frontFill} fill="url(#cylinderBody)" stroke="none" />
-          <path d={result.topFill} fill="url(#cylinderTop)" stroke="none" />
+          <path d={result.frontFill} fill="#fff" stroke="none" />
+          <path d={result.topFill} fill="#fff" stroke="none" />
           {result.layers && <path d={result.layers} fill="none" stroke="#999" strokeWidth={1.5} strokeDasharray="6 3" />}
           <path d={result.bottomFrontArc} fill="none" stroke="#000" strokeWidth={1.2} />
           <path d={result.topEllipse} fill="none" stroke="#000" strokeWidth={1.2} />
           <path d={result.sideLines} fill="none" stroke="#000" strokeWidth={1} />
-          {result.headPath && <path d={result.headPath} fill="none" stroke="#555" strokeWidth={0.8} />}
-          {result.supportsPath && <path d={result.supportsPath} fill="none" stroke="#555" strokeWidth={0.8} />}
-          {result.nozzlesPath && <path d={result.nozzlesPath} fill="none" stroke="#555" strokeWidth={0.8} />}
-          {result.coilPath && <path d={result.coilPath} fill="none" stroke="#aaa" strokeWidth={0.6} strokeDasharray="3 2" />}
+          {result.headPath && <path d={result.headPath} fill="none" stroke="#000" strokeWidth={1} />}
+          {result.supportsPath && <path d={result.supportsPath} fill="none" stroke="#000" strokeWidth={0.8} />}
+          <path d={shaftPath} fill="none" stroke="#000" strokeWidth={0.8} />
+          <path d={bladesPath} fill="none" stroke="#000" strokeWidth={0.6} />
+          {result.nozzlesPath && <path d={result.nozzlesPath} fill="none" stroke="#000" strokeWidth={0.8} />}
+          {result.coilPath && <path d={result.coilPath} fill="none" stroke="#999" strokeWidth={0.6} strokeDasharray="3 2" />}
           {result.nozzleLabels.map((nl, i) => (
-            <text key={i} x={nl.x} y={nl.y - 8} fontSize={8} fill="#555" textAnchor="middle">{nl.name}</text>
+            <text key={i} x={nl.x} y={nl.y} fontSize={8} fill="#000" textAnchor="middle">{nl.name}</text>
           ))}
           <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">{chamberData.name}</text>
         </g>
       )
     }
 
+    // Cuboid wireframe SVG export
     const result = cuboidPath(width, depth, height, 0.2, layers)
 
     return (
       <g>
-        {/* Room context for SVG export */}
+        {/* Room context for SVG export - wireframe, solid lines */}
         {chamberData.roomContext && (() => {
           const ctx = renderRoomContext(chamberData.roomContext, 0.2)
           return (
-            <g opacity={0.35}>
-              <path d={ctx.roomPath} fill="none" stroke="#666" strokeWidth={0.8} strokeDasharray="6 3" />
+            <g>
+              <path d={ctx.roomPath} fill="none" stroke="#000" strokeWidth={1.0} />
               {ctx.devicePaths.map((dp, i) => (
                 <g key={`dev-${i}`}>
-                  <path d={dp.topPath} fill="#e8e8e8" stroke="none" />
-                  <path d={dp.frontPath} fill="#d0d0d0" stroke="none" />
-                  <path d={dp.rightPath} fill="#bbb" stroke="none" />
-                  <path d={dp.edgesPath} fill="none" stroke="#888" strokeWidth={0.6} />
-                  <text x={dp.labelX} y={dp.labelY} fontSize={9} fill="#666" textAnchor="middle">{dp.name}</text>
+                  <path d={dp.edgesPath} fill="none" stroke="#333" strokeWidth={0.8} />
+                  <text x={dp.labelX} y={dp.labelY} fontSize={10} fill="#000" textAnchor="middle">{dp.name}</text>
                 </g>
               ))}
               {ctx.doorMarkers.map((dm, i) => (
-                <text key={`door-${i}`} x={dm.x} y={dm.y - 12} fontSize={10} fill="#c44" textAnchor="middle" fontWeight="bold">
-                  {dm.label}
-                </text>
+                <g key={`door-${i}`}>
+                  <path d={dm.doorRect} fill="none" stroke="#000" strokeWidth={1.0} />
+                  <text x={dm.x} y={dm.y - 6} fontSize={10} fill="#000" textAnchor="middle" fontWeight="bold">
+                    {dm.label}
+                  </text>
+                </g>
               ))}
             </g>
           )
         })()}
-        {result.faces.map((face, i) => (
-          <path key={i} d={face.path} fill={face.fill} stroke="none" />
-        ))}
         {result.layers && <path d={result.layers} fill="none" stroke="#999" strokeWidth={1.5} strokeDasharray="6 3" />}
-        <path d={result.edges} fill="none" stroke="#000" strokeWidth={1} strokeLinejoin="round" />
+        <path d={result.hiddenEdges} fill="none" stroke="#000" strokeWidth={0.7} strokeDasharray="4 3" />
+        <path d={result.visibleEdges} fill="none" stroke="#000" strokeWidth={1.2} strokeLinejoin="round" />
         <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">{chamberData.name}</text>
       </g>
     )
