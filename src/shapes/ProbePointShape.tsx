@@ -10,6 +10,12 @@ type ProbePointShape = TLBaseShape<'probe-point', {
 // Track editing values across renders (keyed by shape ID)
 const editingValues = new Map<string, string>()
 
+// Engineering drawing style colors
+const CIRCLE_COLOR = '#00bcd4' // Cyan - matches reference PDFs
+const LABEL_COLOR = '#333333'  // Dark gray for readability
+const CIRCLE_RADIUS = 7        // Screen-space radius for the open circle
+const CIRCLE_STROKE = 1.5      // Stroke width for the circle
+
 export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
   static type = 'probe-point' as const
 
@@ -49,7 +55,7 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
 
   getGeometry(_shape: ProbePointShape) {
     return new Circle2d({
-      radius: 8,
+      radius: CIRCLE_RADIUS + 3,
       isFilled: true,
     })
   }
@@ -57,30 +63,38 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
   component(shape: ProbePointShape) {
     const { pointData } = shape.props
     const { label } = pointData
-    const size = 5
     const isEditing = this.editor.getEditingShapeId() === shape.id
 
     return (
       <SVGContainer>
-        {/* Cross marker */}
-        <line x1={-size} y1={0} x2={size} y2={0} stroke="#e74c3c" strokeWidth={1.5} />
-        <line x1={0} y1={-size} x2={0} y2={size} stroke="#e74c3c" strokeWidth={1.5} />
-        {/* Label with offset to avoid overlap */}
+        {/* Open circle - engineering drawing style */}
+        <circle
+          cx={0}
+          cy={0}
+          r={CIRCLE_RADIUS}
+          fill="none"
+          stroke={CIRCLE_COLOR}
+          strokeWidth={CIRCLE_STROKE}
+        />
+        {/* Small center dot for precise positioning */}
+        <circle cx={0} cy={0} r={1} fill={CIRCLE_COLOR} />
+        {/* Label positioned above the circle */}
         {isEditing ? (
-          <foreignObject x={8} y={-20} width={60} height={20}>
+          <foreignObject x={-30} y={-CIRCLE_RADIUS - 22} width={60} height={20}>
             <input
               autoFocus
               defaultValue={label}
               style={{
                 width: '100%',
-                fontSize: '10px',
+                fontSize: '11px',
                 fontWeight: 'bold',
-                color: '#e74c3c',
-                border: '1px solid #e74c3c',
+                color: LABEL_COLOR,
+                border: `1px solid ${CIRCLE_COLOR}`,
                 borderRadius: '2px',
-                padding: '1px 2px',
+                padding: '1px 3px',
                 outline: 'none',
                 background: 'white',
+                textAlign: 'center',
               }}
               onInput={(e) => {
                 editingValues.set(shape.id, (e.target as HTMLInputElement).value)
@@ -106,7 +120,14 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
             />
           </foreignObject>
         ) : (
-          <text x={8} y={-8} fontSize={10} fill="#e74c3c" fontWeight="bold" textAnchor="start">
+          <text
+            x={0}
+            y={-CIRCLE_RADIUS - 4}
+            fontSize={11}
+            fill={LABEL_COLOR}
+            fontWeight="bold"
+            textAnchor="middle"
+          >
             {label}
           </text>
         )}
@@ -116,12 +137,30 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
 
   toSvg(shape: ProbePointShape) {
     const { label } = shape.props.pointData
-    const size = 5
     return (
       <g>
-        <line x1={-size} y1={0} x2={size} y2={0} stroke="#e74c3c" strokeWidth={1.5} />
-        <line x1={0} y1={-size} x2={0} y2={size} stroke="#e74c3c" strokeWidth={1.5} />
-        <text x={8} y={-8} fontSize={10} fill="#e74c3c" fontWeight="bold" textAnchor="start">{label}</text>
+        {/* Open circle - engineering drawing style */}
+        <circle
+          cx={0}
+          cy={0}
+          r={CIRCLE_RADIUS}
+          fill="none"
+          stroke={CIRCLE_COLOR}
+          strokeWidth={CIRCLE_STROKE}
+        />
+        {/* Small center dot for precise positioning */}
+        <circle cx={0} cy={0} r={1} fill={CIRCLE_COLOR} />
+        {/* Label above the circle */}
+        <text
+          x={0}
+          y={-CIRCLE_RADIUS - 4}
+          fontSize={11}
+          fill={LABEL_COLOR}
+          fontWeight="bold"
+          textAnchor="middle"
+        >
+          {label}
+        </text>
       </g>
     )
   }
