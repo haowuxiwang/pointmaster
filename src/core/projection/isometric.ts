@@ -56,19 +56,3 @@ export function projectPoints(
   return points3D.map(p => project3Dto2D(p.x, p.y, p.z, scale));
 }
 
-/**
- * Project a 3D circle (in XY plane) to an SVG ellipse under isometric projection.
- * Returns center, rx, ry for SVG ellipse/arc commands.
- */
-export function projectEllipse(
-  cx3d: number,
-  cy3d: number,
-  z: number,
-  radius: number,
-  scale: number = DEFAULT_SCALE
-): { cx: number; cy: number; rx: number; ry: number } {
-  const center = project3Dto2D(cx3d, cy3d, z, scale);
-  const rx = radius * Math.SQRT2 * cosA * scale;
-  const ry = radius * Math.SQRT2 * sinA * scale;
-  return { cx: center.x, cy: center.y, rx, ry };
-}

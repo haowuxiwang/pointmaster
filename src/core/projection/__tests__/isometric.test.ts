@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { project3Dto2D, unproject2Dto3D, projectEllipse, CHAMBER_SCALE } from '../isometric';
+import { project3Dto2D, unproject2Dto3D, CHAMBER_SCALE } from '../isometric';
 
 describe('project3Dto2D', () => {
   it('origin projects to (0, 0)', () => {
@@ -47,30 +47,3 @@ describe('CHAMBER_SCALE', () => {
   });
 });
 
-describe('projectEllipse', () => {
-  it('center matches project3Dto2D for same 3D point', () => {
-    const cx3d = 200, cy3d = 150, z = 100, radius = 50;
-    const ellipse = projectEllipse(cx3d, cy3d, z, radius, CHAMBER_SCALE);
-    const point = project3Dto2D(cx3d, cy3d, z, CHAMBER_SCALE);
-    expect(ellipse.cx).toBeCloseTo(point.x, 5);
-    expect(ellipse.cy).toBeCloseTo(point.y, 5);
-  });
-
-  it('rx and ry are positive', () => {
-    const ellipse = projectEllipse(100, 100, 0, 50, CHAMBER_SCALE);
-    expect(ellipse.rx).toBeGreaterThan(0);
-    expect(ellipse.ry).toBeGreaterThan(0);
-  });
-
-  it('rx > ry for isometric projection', () => {
-    const ellipse = projectEllipse(100, 100, 0, 50, CHAMBER_SCALE);
-    expect(ellipse.rx).toBeGreaterThan(ellipse.ry);
-  });
-
-  it('rx/ry ratio equals cosA/sinA', () => {
-    const ellipse = projectEllipse(100, 100, 0, 50, CHAMBER_SCALE);
-    const cosA = Math.cos(Math.PI / 6);
-    const sinA = Math.sin(Math.PI / 6);
-    expect(ellipse.rx / ellipse.ry).toBeCloseTo(cosA / sinA, 5);
-  });
-});
