@@ -1,5 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import Canvas, { subscribeDragState, getDragState } from './Canvas'
+import Canvas from './Canvas'
+
+/** Shape types that user is allowed to delete */
+const DELETABLE_TYPES = new Set(['probe-point', 'drain-port', 'inlet-port', 'built-in-probe'])
 import ZSlider from './ZSlider'
 import NewProjectDialog from './dialogs/NewProjectDialog'
 import PointListPanel from './panels/PointListPanel'
@@ -8,6 +11,7 @@ import AutoPlacePanel from './panels/AutoPlacePanel'
 import ChamberPropertiesPanel from './panels/ChamberPropertiesPanel'
 import ToastContainer, { showToast } from './Toast'
 import ViewControls from './ViewControls'
+import StatusBar from './StatusBar'
 import { exportToSVG, type ExportMetadata } from '@/core/export/svgExport'
 import { exportToPNG } from '@/core/export/pngExport'
 import { useProjectStore } from '@/store/projectStore'
@@ -27,15 +31,7 @@ export default function Layout() {
   editorRef.current = editor
   const points = useProjectStore((s) => s.points)
   const chamber = useProjectStore((s) => s.chamber)
-  const currentZLevel = useProjectStore((s) => s.currentZLevel)
   const projectName = useProjectStore((s) => s.projectName)
-  const [dragInfo, setDragInfo] = useState(getDragState())
-
-  // Subscribe to drag state changes for status bar
-  useEffect(() => {
-    const unsub = subscribeDragState(() => setDragInfo(getDragState()))
-    return unsub
-  }, [])
 
   // Show new project dialog on first load
   useEffect(() => {
@@ -44,6 +40,16 @@ export default function Layout() {
       setShowNewProject(true)
       sessionStorage.setItem('hasSeenIntro', 'true')
     }
+  }, [])
+
+  // Filter selected shapes to only deletable user shapes (exclude chamber, description, etc.)
+  const getDeletableIds = useCallback(() => {
+    if (!editorRef.current) return []
+    const ids = editorRef.current.getSelectedShapeIds()
+    return ids.filter((id) => {
+      const s = editorRef.current?.getShape(id)
+      return s && DELETABLE_TYPES.has(s.type)
+    })
   }, [])
 
   // Keyboard shortcuts
@@ -59,14 +65,16 @@ export default function Layout() {
       else if (ctrl && e.key === 'z') { e.preventDefault(); editorRef.current?.undo() }
       else if (ctrl && e.key === 'y') { e.preventDefault(); editorRef.current?.redo() }
       else if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault()
-        const ids = editorRef.current?.getSelectedShapeIds()
-        if (ids && ids.length > 0) editorRef.current?.deleteShapes(ids)
+        const ids = getDeletableIds()
+        if (ids.length > 0) {
+          e.preventDefault()
+          editorRef.current?.deleteShapes(ids)
+        }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [getDeletableIds])
 
   const switchTool = useCallback((toolId: string) => {
     setActiveTool(toolId)
@@ -201,8 +209,8 @@ export default function Layout() {
           <ToolButton icon="B" label="自带探头" active={activeTool === 'built-in-probe'} onClick={() => switchTool('built-in-probe')} />
           <div className="w-8 border-t border-gray-300 my-1" />
           <ToolButton icon="✕" label="删除选中" active={false} onClick={() => {
-            const ids = editor?.getSelectedShapeIds()
-            if (ids && ids.length > 0) editor?.deleteShapes(ids)
+            const ids = getDeletableIds()
+            if (ids.length > 0) editorRef.current?.deleteShapes(ids)
           }} />
         </aside>
 
@@ -247,22 +255,8 @@ export default function Layout() {
         </aside>
       </div>
 
-      {/* Status bar */}
-      <footer className="h-6 bg-gray-50 border-t border-gray-200 flex items-center px-4 text-xs text-gray-400 gap-4">
-        <span>设备: {chamber.name}</span>
-        {dragInfo.label && dragInfo.pos ? (
-          <span className="text-blue-600 font-medium">
-            拖拽 {dragInfo.label}: ({Math.round(dragInfo.pos.x)}, {Math.round(dragInfo.pos.y)}, {Math.round(dragInfo.pos.z)})mm
-            {isAtBoundary(dragInfo.pos) && <span className="ml-1 text-amber-500">贴边</span>}
-          </span>
-        ) : (
-          <span>Z: {currentZLevel}mm</span>
-        )}
-        <span>点位: {points.length}</span>
-        {activeTool !== 'select' && !dragInfo.label && (
-          <span className="text-blue-400">点击画布放置点位，按 Esc 退出</span>
-        )}
-      </footer>
+      {/* Status bar — isolated component to avoid Layout re-renders during drag */}
+      <StatusBar />
       <NewProjectDialog open={showNewProject} onClose={() => setShowNewProject(false)} />
       <ToastContainer />
       {showHelp && (
@@ -329,17 +323,6 @@ function ToolButton({ icon, label, active, onClick }: { icon: string; label: str
     >
       {icon}
     </button>
-  )
-}
-
-/** Check if a point is at chamber boundary (within 1mm) */
-function isAtBoundary(pos: { x: number; y: number; z: number }): boolean {
-  const { width, depth, height } = useProjectStore.getState().chamber.dimensions
-  const tol = 1
-  return (
-    pos.x <= tol || pos.x >= width - tol ||
-    pos.y <= tol || pos.y >= depth - tol ||
-    pos.z <= tol || pos.z >= height - tol
   )
 }
 

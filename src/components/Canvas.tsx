@@ -66,7 +66,7 @@ function EditorSync() {
     // Flush any pending load that was waiting for editor
     useProjectStore.getState().flushPendingLoad()
 
-    // Initialize chamber position from store
+    // Initialize chamber position from store (covers post-flush pendingChamber creation)
     const initChamber = editor.getCurrentPageShapes().find((s) => s.type === 'chamber')
     if (initChamber) {
       chamberPosRef.current = { x: initChamber.x, y: initChamber.y }

@@ -7,6 +7,19 @@ import { hasPointData, POINT_SHAPE_TYPES } from '@/types';
 import type { Editor, TLShapeId } from 'tldraw';
 import { createShapeId } from 'tldraw';
 
+/** Compute the chamber geometry offset (minX, minY) for the current projection */
+function getChamberGeometryOffset(): { dx: number; dy: number } {
+  const { chamber, viewMode } = useProjectStore.getState()
+  const { width, depth, height } = chamber.dimensions
+  const proj = projections[viewMode]
+  const p = (x: number, y: number, z: number) => proj.project(x, y, z, CHAMBER_SCALE)
+  const xs = [p(0,0,0).x, p(width,0,0).x, p(width,depth,0).x, p(0,depth,0).x,
+              p(0,0,height).x, p(width,0,height).x, p(width,depth,height).x, p(0,depth,height).x]
+  const ys = [p(0,0,0).y, p(width,0,0).y, p(width,depth,0).y, p(0,depth,0).y,
+              p(0,0,height).y, p(width,0,height).y, p(width,depth,height).y, p(0,depth,height).y]
+  return { dx: Math.min(...xs), dy: Math.min(...ys) }
+}
+
 function createPointShape(
   editor: Editor,
   chamberShapeId: TLShapeId,
@@ -16,13 +29,14 @@ function createPointShape(
 ): void {
   const viewMode = useProjectStore.getState().viewMode
   const projected = projections[viewMode].project(point.position.x, point.position.y, point.position.z, CHAMBER_SCALE)
+  const { dx, dy } = getChamberGeometryOffset()
   const pointId = createShapeId(`${shapeType}-${index}`)
   editor.createShape({
     id: pointId,
     type: shapeType as any,
     parentId: chamberShapeId,
-    x: projected.x,
-    y: projected.y,
+    x: projected.x - dx,
+    y: projected.y - dy,
     props: {
       w: 40,
       h: 40,
@@ -75,6 +89,7 @@ function syncPointsToCanvas(
 function reprojectShapes(editor: Editor): void {
   const viewMode = useProjectStore.getState().viewMode
   const projection = projections[viewMode]
+  const { dx, dy } = getChamberGeometryOffset()
   const shapes = editor.getCurrentPageShapes()
   for (const shape of shapes) {
     if (!POINT_SHAPE_TYPES.has(shape.type)) continue
@@ -84,10 +99,25 @@ function reprojectShapes(editor: Editor): void {
     editor.updateShape({
       id: shape.id,
       type: shape.type as any,
-      x: projected.x,
-      y: projected.y,
+      x: projected.x - dx,
+      y: projected.y - dy,
     })
   }
+}
+
+/** Create chamber shape on canvas (extracted for reuse) */
+function createChamberShape(editor: Editor, chamber: Chamber): void {
+  const shapes = editor.getCurrentPageShapes();
+  editor.deleteShapes(shapes.map((s) => s.id));
+  const chamberId = createShapeId('chamber');
+  editor.createShape({
+    id: chamberId,
+    type: 'chamber',
+    x: 100,
+    y: 100,
+    props: { w: 800, h: 600, chamberData: chamber },
+  });
+  useProjectStore.setState({ chamberShapeId: chamberId })
 }
 
 function getChamberProjectedBottom(chamber: Chamber): number {
@@ -123,6 +153,8 @@ interface ProjectState {
   pendingProject: ProjectData | null;
   /** Pending template waiting for editor to be ready (deferred load) */
   pendingTemplate: EquipmentTemplate | null;
+  /** Pending chamber waiting for editor to be ready (deferred load) */
+  pendingChamber: Chamber | null;
 
   setEditor: (editor: Editor | null) => void;
   setProjectName: (name: string) => void;
@@ -164,6 +196,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   viewMode: 'isometric',
   pendingProject: null,
   pendingTemplate: null,
+  pendingChamber: null,
 
   setEditor: (editor) => set({ editor }),
   setProjectName: (name) => set({ projectName: name }),
@@ -173,27 +206,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       chamber,
       points: [],
       currentZLevel: Math.max(0, Math.min(s.currentZLevel, chamber.dimensions.height)),
+      pendingChamber: null,
     }));
 
     if (editor) {
-      // 清除现有形状
-      const shapes = editor.getCurrentPageShapes();
-      editor.deleteShapes(shapes.map((s) => s.id));
-
-      // 创建设备形状
-      const chamberId = createShapeId('chamber');
-      editor.createShape({
-        id: chamberId,
-        type: 'chamber',
-        x: 100,
-        y: 100,
-        props: {
-          w: 800,
-          h: 600,
-          chamberData: chamber,
-        },
-      });
-      set({ chamberShapeId: chamberId });
+      createChamberShape(editor, chamber)
+    } else {
+      // Editor not ready — defer canvas rebuild
+      set({ pendingChamber: chamber })
     }
   },
   updateChamberDimensions: (dimensionUpdates, radius) => {
@@ -298,7 +318,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         if (shape && hasPointData(shape)) {
           const viewMode = get().viewMode
           const projected = projections[viewMode].project(position.x, position.y, position.z, CHAMBER_SCALE)
-          editor.updateShape({ id: shape.id, type: shape.type as any, x: projected.x, y: projected.y, props: { pointData: { ...shape.props.pointData, position } } })
+          const { dx, dy } = getChamberGeometryOffset()
+          editor.updateShape({ id: shape.id, type: shape.type as any, x: projected.x - dx, y: projected.y - dy, props: { pointData: { ...shape.props.pointData, position } } })
         }
       }
     } catch (err) {
@@ -527,9 +548,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   flushPendingLoad: () => {
-    const { pendingProject, pendingTemplate, editor } = get()
+    const { pendingProject, pendingTemplate, pendingChamber, editor } = get()
     if (!editor) return
 
+    if (pendingChamber) {
+      set({ pendingChamber: null })
+      createChamberShape(editor, pendingChamber)
+    }
     if (pendingProject) {
       set({ pendingProject: null })
       get().loadProject(pendingProject)
