@@ -59,3 +59,29 @@ export function projectPoints(
   return points3D.map(p => project3Dto2D(p.x, p.y, p.z, scale));
 }
 
+// ─── Multi-view projection system ───────────────────────────────────
+
+export type ViewMode = 'isometric' | 'front'
+
+export interface Projection {
+  project(x: number, y: number, z: number, scale: number): Point2D
+  unproject(sx: number, sy: number, z: number, scale: number): Point2D
+  cameraDir: { x: number; y: number; z: number }
+}
+
+const isoProjection: Projection = {
+  project: project3Dto2D,
+  unproject: unproject2Dto3D,
+  cameraDir: { x: 1, y: 1, z: 1 },
+}
+
+const frontProjection: Projection = {
+  project: (x, _y, z, scale) => ({ x: x * scale, y: -z * scale }),
+  unproject: (sx, sy, _z, scale) => ({ x: sx / scale, y: -sy / scale }),
+  cameraDir: { x: 0, y: -1, z: 0 },
+}
+
+export const projections: Record<ViewMode, Projection> = {
+  isometric: isoProjection,
+  front: frontProjection,
+}

@@ -53,11 +53,14 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
   component(shape: TextAnnotationShape) {
     const { content, fontSize, w, h } = shape.props
     const isEditing = this.editor.getEditingShapeId() === shape.id
+    const lines = content.split('\n')
+    // Auto-size: compute height based on line count
+    const autoHeight = Math.max(h, lines.length * fontSize * 1.4 + 12)
 
     if (isEditing) {
       return (
         <SVGContainer>
-          <foreignObject x={0} y={0} width={w} height={h}>
+          <foreignObject x={0} y={0} width={w} height={autoHeight}>
             <textarea
               autoFocus
               defaultValue={content}
@@ -66,17 +69,18 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
                 height: '100%',
                 fontSize: `${fontSize}px`,
                 color: '#333',
-                border: '1px solid #333',
+                border: '1px solid #00bcd4',
                 borderRadius: '2px',
-                padding: '2px 4px',
+                padding: '4px 6px',
                 outline: 'none',
                 background: 'white',
                 boxSizing: 'border-box',
-                resize: 'none',
+                resize: 'vertical',
                 fontFamily: 'inherit',
+                lineHeight: '1.4',
               }}
               onInput={(e) => {
-                editingValues.set(shape.id, (e.target as HTMLTextAreaElement).value)
+                editingValues.set(shape.id, (e.target as HTMLInputElement).value)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
@@ -92,15 +96,13 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
       )
     }
 
-    const lines = content.split('\n')
-
     return (
       <SVGContainer>
         {lines.map((line, i) => (
           <text
             key={i}
             x={0}
-            y={fontSize * (i + 1)}
+            y={fontSize * 1.4 * (i + 1)}
             fontSize={fontSize}
             fill="#333"
           >

@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { createShapeId } from 'tldraw'
 import { useProjectStore } from '@/store/projectStore'
 
 export default function AutoPlacePanel() {
   const autoPlace = useProjectStore((s) => s.autoPlace)
   const points = useProjectStore((s) => s.points)
+  const editor = useProjectStore((s) => s.editor)
   const [totalCount, setTotalCount] = useState(12)
   const [includeCenter, setIncludeCenter] = useState(true)
   const [includeDrainPorts, setIncludeDrainPorts] = useState(false)
@@ -16,11 +18,26 @@ export default function AutoPlacePanel() {
     return count
   }
 
+  /** Check if the placement description has been manually edited by the user */
+  const isDescriptionEdited = (): boolean => {
+    if (!editor) return false
+    const desc = editor.getCurrentPageShapes().find(s => s.id === createShapeId('placement-desc'))
+    if (!desc) return false
+    const content = (desc.props as any).content as string
+    // If description exists and is non-empty, consider it potentially edited
+    return content.length > 0
+  }
+
   const handlePlace = () => {
+    let msg = ''
     if (points.length > 0) {
-      if (!confirm(`当前有 ${points.length} 个布点，将重新生成 ${totalCount} 个点位。继续？`)) {
-        return
-      }
+      msg = `当前有 ${points.length} 个布点，将重新生成 ${totalCount} 个点位。`
+    }
+    if (isDescriptionEdited()) {
+      msg += '布点描述将被重新生成，手动编辑的内容会丢失。'
+    }
+    if (msg && !confirm(msg + '\n\n继续？')) {
+      return
     }
 
     autoPlace({
@@ -43,11 +60,15 @@ export default function AutoPlacePanel() {
         <input
           type="number"
           min={1}
+          max={1000}
           value={totalCount}
-          onChange={(e) => setTotalCount(Number(e.target.value))}
+          onChange={(e) => {
+            const v = Number(e.target.value)
+            if (isFinite(v)) setTotalCount(Math.max(1, Math.min(1000, v)))
+          }}
           className="w-full border rounded px-2 py-1 text-sm"
         />
-        <p className="text-xs text-gray-400">包含角点和中心点，端口附近的探头从总数中分配</p>
+        <p className="text-xs text-gray-400">包含角点和中心点，端口位置额外放置探头（不消耗总数）</p>
       </div>
 
       {/* Options */}
@@ -113,7 +134,7 @@ export default function AutoPlacePanel() {
         <p>提示：</p>
         <ul className="list-disc list-inside space-y-0.5">
           <li>先放置排水口、进气口、自带探头，再执行布点</li>
-          <li>勾选的端口位置会自动放置探头点</li>
+          <li>勾选的端口位置会放置探头（与端口精确重合，可拖走调整）</li>
           <li>布点后可拖动调整位置</li>
           <li>双击标签可编辑名称</li>
         </ul>

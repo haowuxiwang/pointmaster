@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import Canvas from './Canvas'
+import Canvas, { subscribeDragState, getDragState } from './Canvas'
 import ZSlider from './ZSlider'
 import NewProjectDialog from './dialogs/NewProjectDialog'
 import PointListPanel from './panels/PointListPanel'
@@ -7,6 +7,7 @@ import TemplatePanel from './panels/TemplatePanel'
 import AutoPlacePanel from './panels/AutoPlacePanel'
 import ChamberPropertiesPanel from './panels/ChamberPropertiesPanel'
 import ToastContainer, { showToast } from './Toast'
+import ViewControls from './ViewControls'
 import { exportToSVG, type ExportMetadata } from '@/core/export/svgExport'
 import { exportToPNG } from '@/core/export/pngExport'
 import { useProjectStore } from '@/store/projectStore'
@@ -28,6 +29,13 @@ export default function Layout() {
   const chamber = useProjectStore((s) => s.chamber)
   const currentZLevel = useProjectStore((s) => s.currentZLevel)
   const projectName = useProjectStore((s) => s.projectName)
+  const [dragInfo, setDragInfo] = useState(getDragState())
+
+  // Subscribe to drag state changes for status bar
+  useEffect(() => {
+    const unsub = subscribeDragState(() => setDragInfo(getDragState()))
+    return unsub
+  }, [])
 
   // Show new project dialog on first load
   useEffect(() => {
@@ -41,11 +49,20 @@ export default function Layout() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Ignore when typing in inputs
+      const tag = (document.activeElement?.tagName || '').toLowerCase()
+      if (tag === 'input' || tag === 'textarea') return
+
       const ctrl = e.ctrlKey || e.metaKey
       if (ctrl && e.key === 's') { e.preventDefault(); handleSave() }
       else if (ctrl && e.key === 'o') { e.preventDefault(); handleOpen() }
       else if (ctrl && e.key === 'z') { e.preventDefault(); editorRef.current?.undo() }
       else if (ctrl && e.key === 'y') { e.preventDefault(); editorRef.current?.redo() }
+      else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        const ids = editorRef.current?.getSelectedShapeIds()
+        if (ids && ids.length > 0) editorRef.current?.deleteShapes(ids)
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -167,8 +184,8 @@ export default function Layout() {
               <option value={3}>3x</option>
             </select>
           </div>
-          <button className="hover:text-gray-800" onClick={() => editor?.undo()}>撤回</button>
-          <button className="hover:text-gray-800" onClick={() => editor?.redo()}>重做</button>
+          <button className="hover:text-gray-800" onClick={() => editorRef.current?.undo()}>撤回</button>
+          <button className="hover:text-gray-800" onClick={() => editorRef.current?.redo()}>重做</button>
           <button className="hover:text-gray-800 ml-2" onClick={() => setShowHelp(true)}>?</button>
         </nav>
       </header>
@@ -182,12 +199,18 @@ export default function Layout() {
           <ToolButton icon="D" label="排水口" active={activeTool === 'drain-port'} onClick={() => switchTool('drain-port')} />
           <ToolButton icon="I" label="进气口" active={activeTool === 'inlet-port'} onClick={() => switchTool('inlet-port')} />
           <ToolButton icon="B" label="自带探头" active={activeTool === 'built-in-probe'} onClick={() => switchTool('built-in-probe')} />
+          <div className="w-8 border-t border-gray-300 my-1" />
+          <ToolButton icon="✕" label="删除选中" active={false} onClick={() => {
+            const ids = editor?.getSelectedShapeIds()
+            if (ids && ids.length > 0) editor?.deleteShapes(ids)
+          }} />
         </aside>
 
         {/* Canvas */}
         <div className="flex-1 relative overflow-hidden">
           <Canvas />
           <ZSlider />
+          <ViewControls />
         </div>
 
         {/* Right panel */}
@@ -227,9 +250,16 @@ export default function Layout() {
       {/* Status bar */}
       <footer className="h-6 bg-gray-50 border-t border-gray-200 flex items-center px-4 text-xs text-gray-400 gap-4">
         <span>设备: {chamber.name}</span>
-        <span>Z: {currentZLevel}mm</span>
+        {dragInfo.label && dragInfo.pos ? (
+          <span className="text-blue-600 font-medium">
+            拖拽 {dragInfo.label}: ({Math.round(dragInfo.pos.x)}, {Math.round(dragInfo.pos.y)}, {Math.round(dragInfo.pos.z)})mm
+            {isAtBoundary(dragInfo.pos) && <span className="ml-1 text-amber-500">贴边</span>}
+          </span>
+        ) : (
+          <span>Z: {currentZLevel}mm</span>
+        )}
         <span>点位: {points.length}</span>
-        {activeTool !== 'select' && (
+        {activeTool !== 'select' && !dragInfo.label && (
           <span className="text-blue-400">点击画布放置点位，按 Esc 退出</span>
         )}
       </footer>
@@ -244,14 +274,26 @@ export default function Layout() {
             </div>
             <div className="flex-1 overflow-y-auto p-5 text-sm text-gray-600 space-y-4">
               <div>
-                <h3 className="font-semibold text-gray-800 mb-1">快速开始</h3>
-                <ol className="list-decimal list-inside space-y-1">
-                  <li>点击「新建」选择设备模板或自定义尺寸</li>
-                  <li>切换到「布点」标签，设置点数后点击「执行布点」</li>
-                  <li>使用左侧工具栏手动添加特殊点位（排水口、进气口等）</li>
-                  <li>拖拽点位微调位置，双击编辑标签</li>
-                  <li>点击「导出PNG」或「导出SVG」保存布点图</li>
+                <h3 className="font-semibold text-gray-800 mb-1">布点流程</h3>
+                <ol className="list-decimal list-inside space-y-1 text-xs">
+                  <li>点击「新建」，选择模板（如灭菌器、冻干机）或自定义尺寸</li>
+                  <li>在左侧工具栏选择 <strong>D=排水口</strong> / <strong>I=进气口</strong> / <strong>B=自带探头</strong>，点击画布放置</li>
+                  <li>切换到「布点」标签，输入总点数，点击「执行布点」</li>
+                  <li>拖拽布点微调位置；使用右侧 <strong>Z 滑块</strong> 改变选中点位的高度</li>
+                  <li>点击「导出PNG」保存布点图</li>
                 </ol>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">左侧工具栏</h3>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <span>↖ 选择</span><span>点击选中形状，拖拽移动</span>
+                  <span>✋ 拖动</span><span>拖拽画布平移视图</span>
+                  <span>+ 添加点位</span><span>在画布上手动添加布点</span>
+                  <span>D 排水口</span><span>标记排水口位置（不计入总数）</span>
+                  <span>I 进气口</span><span>标记进气口位置（不计入总数）</span>
+                  <span>B 自带探头</span><span>标记设备自带探头（不计入总数）</span>
+                  <span>✕ 删除选中</span><span>删除当前选中的形状</span>
+                </div>
               </div>
               <div>
                 <h3 className="font-semibold text-gray-800 mb-1">快捷键</h3>
@@ -260,13 +302,15 @@ export default function Layout() {
                   <span>Ctrl+O</span><span>打开项目</span>
                   <span>Ctrl+Z</span><span>撤销</span>
                   <span>Ctrl+Y</span><span>重做</span>
+                  <span>Delete</span><span>删除选中形状</span>
                   <span>Esc</span><span>退出当前工具</span>
                   <span>滚轮</span><span>缩放画布</span>
+                  <span>双击点位</span><span>编辑标签名</span>
                 </div>
               </div>
               <div>
                 <h3 className="font-semibold text-gray-800 mb-1">坐标系统</h3>
-                <p className="text-xs">所有尺寸单位为毫米(mm)。X轴=宽度，Y轴=深度，Z轴=高度。使用右侧Z滑块切换查看不同高度层的点位。</p>
+                <p className="text-xs">单位 mm。X=宽度，Y=深度，Z=高度。右侧 Z 滑块可切换高度层；选中点位后拖拽滑块可改变其 Z 坐标。</p>
               </div>
             </div>
           </div>
@@ -285,6 +329,17 @@ function ToolButton({ icon, label, active, onClick }: { icon: string; label: str
     >
       {icon}
     </button>
+  )
+}
+
+/** Check if a point is at chamber boundary (within 1mm) */
+function isAtBoundary(pos: { x: number; y: number; z: number }): boolean {
+  const { width, depth, height } = useProjectStore.getState().chamber.dimensions
+  const tol = 1
+  return (
+    pos.x <= tol || pos.x >= width - tol ||
+    pos.y <= tol || pos.y >= depth - tol ||
+    pos.z <= tol || pos.z >= height - tol
   )
 }
 

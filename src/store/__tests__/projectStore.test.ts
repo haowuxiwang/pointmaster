@@ -34,6 +34,10 @@ vi.mock('@/core/placement', () => ({
 vi.mock('@/core/projection/isometric', () => ({
   project3Dto2D: vi.fn((x: number, y: number, z: number) => ({ x: x * 0.2, y: y * 0.2 - z * 0.2 })),
   CHAMBER_SCALE: 0.2,
+  projections: {
+    isometric: { project: vi.fn((x: number, y: number, z: number) => ({ x: x * 0.2, y: y * 0.2 - z * 0.2 })), cameraDir: { x: 1, y: 1, z: 1 } },
+    front: { project: vi.fn((x: number, _y: number, z: number) => ({ x: x * 0.2, y: -z * 0.2 })), cameraDir: { x: 0, y: -1, z: 0 } },
+  },
 }))
 
 // Mock 描述生成

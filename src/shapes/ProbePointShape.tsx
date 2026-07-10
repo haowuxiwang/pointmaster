@@ -10,11 +10,8 @@ type ProbePointShape = TLBaseShape<'probe-point', {
 // Track editing values across renders (keyed by shape ID)
 const editingValues = new Map<string, string>()
 
-// Engineering drawing style colors
-const CIRCLE_COLOR = '#00bcd4' // Cyan - matches reference PDFs
-const LABEL_COLOR = '#333333'  // Dark gray for readability
-const CIRCLE_RADIUS = 7        // Screen-space radius for the open circle
-const CIRCLE_STROKE = 1.5      // Stroke width for the circle
+const CIRCLE_COLOR = '#00bcd4'
+const LABEL_COLOR = '#333333'
 
 export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
   static type = 'probe-point' as const
@@ -55,7 +52,7 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
 
   getGeometry(_shape: ProbePointShape) {
     return new Circle2d({
-      radius: CIRCLE_RADIUS + 3,
+      radius: 6,
       isFilled: true,
     })
   }
@@ -64,23 +61,42 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
     const { pointData } = shape.props
     const { label } = pointData
     const isEditing = this.editor.getEditingShapeId() === shape.id
+    const isSelected = this.editor.getSelectedShapeIds().includes(shape.id)
+    const isHovering = this.editor.getHoveredShapeId?.() === shape.id
+    const showLabel = (isSelected || isHovering) && !isEditing
 
     return (
       <SVGContainer>
-        {/* Open circle - engineering drawing style */}
-        <circle
-          cx={0}
-          cy={0}
-          r={CIRCLE_RADIUS}
-          fill="none"
-          stroke={CIRCLE_COLOR}
-          strokeWidth={CIRCLE_STROKE}
-        />
-        {/* Small center dot for precise positioning */}
-        <circle cx={0} cy={0} r={1} fill={CIRCLE_COLOR} />
-        {/* Label positioned above the circle */}
-        {isEditing ? (
-          <foreignObject x={-30} y={-CIRCLE_RADIUS - 22} width={60} height={20}>
+        {/* Selection/hover glow ring */}
+        {(isSelected || isHovering) && (
+          <circle
+            cx={0}
+            cy={0}
+            r={8}
+            fill="none"
+            stroke={isSelected ? '#1976d2' : '#88ccff'}
+            strokeWidth={isSelected ? 2 : 1.5}
+            opacity={0.6}
+          />
+        )}
+        {/* Small black dot — the point marker */}
+        <circle cx={0} cy={0} r={4} fill={isSelected ? '#1976d2' : '#000'} />
+        {/* Label — only shown on selection/hover to reduce visual clutter */}
+        {showLabel && (
+          <text
+            x={0}
+            y={-12}
+            fontSize={11}
+            fill={isSelected ? '#1976d2' : '#333'}
+            fontWeight="bold"
+            textAnchor="middle"
+          >
+            {label}
+          </text>
+        )}
+        {/* Edit mode input */}
+        {isEditing && (
+          <foreignObject x={-30} y={-20} width={60} height={20}>
             <input
               autoFocus
               defaultValue={label}
@@ -123,17 +139,6 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
               }}
             />
           </foreignObject>
-        ) : (
-          <text
-            x={0}
-            y={-CIRCLE_RADIUS - 4}
-            fontSize={11}
-            fill={LABEL_COLOR}
-            fontWeight="bold"
-            textAnchor="middle"
-          >
-            {label}
-          </text>
         )}
       </SVGContainer>
     )
@@ -143,21 +148,12 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
     const { label } = shape.props.pointData
     return (
       <g>
-        {/* Open circle - engineering drawing style */}
-        <circle
-          cx={0}
-          cy={0}
-          r={CIRCLE_RADIUS}
-          fill="none"
-          stroke={CIRCLE_COLOR}
-          strokeWidth={CIRCLE_STROKE}
-        />
-        {/* Small center dot for precise positioning */}
-        <circle cx={0} cy={0} r={1} fill={CIRCLE_COLOR} />
-        {/* Label above the circle */}
+        {/* Filled dot for export */}
+        <circle cx={0} cy={0} r={3} fill="#000" />
+        {/* Label above */}
         <text
           x={0}
-          y={-CIRCLE_RADIUS - 4}
+          y={-8}
           fontSize={11}
           fill={LABEL_COLOR}
           fontWeight="bold"

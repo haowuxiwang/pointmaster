@@ -67,8 +67,13 @@ export default function ChamberPropertiesPanel() {
             <label className="block text-xs text-gray-500 mb-0.5">宽度 (mm)</label>
             <input
               type="number"
+              min={1}
+              max={50000}
               value={width}
-              onChange={(e) => setWidth(Math.max(1, +e.target.value))}
+              onChange={(e) => {
+                const v = +e.target.value;
+                if (isFinite(v)) setWidth(Math.max(1, Math.min(50000, v)));
+              }}
               className="w-full border rounded px-2 py-1 text-sm"
             />
           </div>
@@ -76,8 +81,13 @@ export default function ChamberPropertiesPanel() {
             <label className="block text-xs text-gray-500 mb-0.5">深度 (mm)</label>
             <input
               type="number"
+              min={1}
+              max={50000}
               value={depth}
-              onChange={(e) => setDepth(Math.max(1, +e.target.value))}
+              onChange={(e) => {
+                const v = +e.target.value;
+                if (isFinite(v)) setDepth(Math.max(1, Math.min(50000, v)));
+              }}
               className="w-full border rounded px-2 py-1 text-sm"
             />
           </div>
@@ -85,8 +95,13 @@ export default function ChamberPropertiesPanel() {
             <label className="block text-xs text-gray-500 mb-0.5">高度 (mm)</label>
             <input
               type="number"
+              min={1}
+              max={50000}
               value={height}
-              onChange={(e) => setHeight(Math.max(1, +e.target.value))}
+              onChange={(e) => {
+                const v = +e.target.value;
+                if (isFinite(v)) setHeight(Math.max(1, Math.min(50000, v)));
+              }}
               className="w-full border rounded px-2 py-1 text-sm"
             />
           </div>
@@ -97,7 +112,7 @@ export default function ChamberPropertiesPanel() {
           <input
             type="number"
             min={1}
-            max={10}
+            max={20}
             value={layers}
             onChange={(e) => setLayers(Math.max(1, Math.min(10, +e.target.value)))}
             className="w-full border rounded px-2 py-1 text-sm"
@@ -109,8 +124,13 @@ export default function ChamberPropertiesPanel() {
             <label className="block text-xs text-gray-500 mb-0.5">半径 (mm)</label>
             <input
               type="number"
+              min={1}
+              max={25000}
               value={radius}
-              onChange={(e) => setRadius(Math.max(1, +e.target.value))}
+              onChange={(e) => {
+                const v = +e.target.value;
+                if (isFinite(v)) setRadius(Math.max(1, Math.min(25000, v)));
+              }}
               className="w-full border rounded px-2 py-1 text-sm"
             />
           </div>

@@ -18,22 +18,49 @@ export function cuboidPath(
   h: number,
   scale: number = CHAMBER_SCALE,
   layers: number = 1,
+  cameraDir: { x: number; y: number; z: number } = { x: 1, y: 1, z: 1 },
 ): CuboidRender {
   const p = (x: number, y: number, z: number) => project3Dto2D(x, y, z, scale);
-  const v = [
-    p(0, 0, 0), p(w, 0, 0), p(w, d, 0), p(0, d, 0), // 0-3 bottom
-    p(0, 0, h), p(w, 0, h), p(w, d, h), p(0, d, h), // 4-7 top
+  // 3D vertices for face normal computation
+  const v3d = [
+    {x:0,y:0,z:0}, {x:w,y:0,z:0}, {x:w,y:d,z:0}, {x:0,y:d,z:0}, // 0-3 bottom
+    {x:0,y:0,z:h}, {x:w,y:0,z:h}, {x:w,y:d,z:h}, {x:0,y:d,z:h}, // 4-7 top
+  ];
+  const v = v3d.map(pt => project3Dto2D(pt.x, pt.y, pt.z, scale));
+
+  // 6 faces with their vertex indices (CCW when viewed from outside)
+  const faces = [
+    { verts: [0,3,2,1], name: 'bottom' }, // z=0
+    { verts: [4,5,6,7], name: 'top'    }, // z=h
+    { verts: [0,1,5,4], name: 'front'  }, // y=0
+    { verts: [2,3,7,6], name: 'back'   }, // y=d
+    { verts: [0,4,7,3], name: 'left'   }, // x=0
+    { verts: [1,2,6,5], name: 'right'  }, // x=w
   ];
 
-  // 12 edges of cuboid, grouped by visibility
-  // In standard isometric view (front-right-top), the 3 edges meeting at
-  // back-bottom-left corner (v[3]) are hidden:
-  //   v[2]-v[3]  bottom-back edge
-  //   v[0]-v[3]  bottom-left edge
-  //   v[3]-v[7]  back-left vertical edge
-  const hiddenEdgeIndices = new Set([
-    '2-3', '0-3', '3-7',
-  ]);
+  // Compute face normal via cross product of two edge vectors
+  const sub = (a: any, b: any) => ({ x: a.x-b.x, y: a.y-b.y, z: a.z-b.z });
+  const cross = (a: any, b: any) => ({ x: a.y*b.z-a.z*b.y, y: a.z*b.x-a.x*b.z, z: a.x*b.y-a.y*b.x });
+  const dot = (a: any, b: any) => a.x*b.x + a.y*b.y + a.z*b.z;
+
+  const hiddenFaces = new Set<string>();
+  for (const f of faces) {
+    const a = v3d[f.verts[0]], b = v3d[f.verts[1]], c = v3d[f.verts[2]];
+    const n = cross(sub(b,a), sub(c,a));
+    // If normal points away from camera, face is hidden
+    if (dot(n, cameraDir) < 0) hiddenFaces.add(f.name);
+  }
+
+  // An edge is hidden ONLY if BOTH its adjacent faces are hidden (convex polyhedron rule)
+  const edgeFaces: [string, string, string][] = [
+    ['bottom','front','0-1'], ['bottom','back','1-2'], ['bottom','back','2-3'], ['bottom','front','3-0'],
+    ['top','front','4-5'],    ['top','back','5-6'],    ['top','back','6-7'],    ['top','front','7-4'],
+    ['left','front','0-4'],   ['right','front','1-5'],  ['right','back','2-6'],  ['left','back','3-7'],
+  ];
+  const hiddenEdgeIndices = new Set<string>();
+  for (const [f1, f2, key] of edgeFaces) {
+    if (hiddenFaces.has(f1) && hiddenFaces.has(f2)) hiddenEdgeIndices.add(key);
+  }
 
   const allEdges: [Point2D, Point2D, string][] = [
     // Bottom face

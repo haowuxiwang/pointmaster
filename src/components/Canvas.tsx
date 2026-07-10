@@ -14,8 +14,40 @@ import { DrainPortTool } from '@/tools/DrainPortTool'
 import { BuiltInProbeTool } from '@/tools/BuiltInProbeTool'
 import { InletPortTool } from '@/tools/InletPortTool'
 import { useProjectStore } from '@/store/projectStore'
-import { unproject2Dto3D, CHAMBER_SCALE } from '@/core/projection/isometric'
+import { project3Dto2D, CHAMBER_SCALE, projections } from '@/core/projection/isometric'
 import { POINT_SHAPE_TYPES } from '@/types'
+
+/** Global drag state shared between EditorSync and Layout via zustand */
+let currentDragLabel: string | null = null
+let currentDragPos: { x: number; y: number; z: number } | null = null
+let dragListeners = new Set<() => void>()
+let dragEndTimer: number | null = null
+
+export function subscribeDragState(fn: () => void) {
+  dragListeners.add(fn)
+  return () => { dragListeners.delete(fn) }
+}
+
+export function getDragState() {
+  return { label: currentDragLabel, pos: currentDragPos }
+}
+
+function notifyDragChange() {
+  dragListeners.forEach(fn => fn())
+}
+
+/** Clear drag state after inactivity — called when drag ends */
+function clearDragStateAfterTimeout() {
+  if (dragEndTimer !== null) {
+    clearTimeout(dragEndTimer)
+  }
+  dragEndTimer = window.setTimeout(() => {
+    currentDragLabel = null
+    currentDragPos = null
+    dragEndTimer = null
+    notifyDragChange()
+  }, 150)
+}
 
 const shapeUtils = [ChamberShapeUtil, ProbePointShapeUtil, TextAnnotationShapeUtil, DimensionShapeUtil, LegendShapeUtil, DrainPortShapeUtil, BuiltInProbeShapeUtil, InletPortShapeUtil]
 const tools = [ProbePointTool, DrainPortTool, BuiltInProbeTool, InletPortTool]
@@ -23,6 +55,7 @@ const tools = [ProbePointTool, DrainPortTool, BuiltInProbeTool, InletPortTool]
 function EditorSync() {
   const editor = useEditor()
   const setEditor = useProjectStore((s) => s.setEditor)
+  const viewMode = useProjectStore((s) => s.viewMode)
   const pendingUpdates = useRef<Map<string, { x: number; y: number; z: number }>>(new Map())
   const rafId = useRef<number | null>(null)
   const chamberPosRef = useRef({ x: 100, y: 100 })
@@ -39,16 +72,17 @@ function EditorSync() {
       chamberPosRef.current = { x: initChamber.x, y: initChamber.y }
     }
 
-    // Batch update function using requestAnimationFrame
+    // Batch update function using requestAnimationFrame — single-point precision update
     const flushUpdates = () => {
       const updates = pendingUpdates.current
       if (updates.size === 0) return
 
-      const points = useProjectStore.getState().points.map((p) => {
+      const allPoints = useProjectStore.getState().points
+      const newPoints = allPoints.map((p) => {
         const newPos = updates.get(p.label)
         return newPos ? { ...p, position: newPos } : p
       })
-      useProjectStore.setState({ points })
+      useProjectStore.setState({ points: newPoints })
       updates.clear()
       rafId.current = null
     }
@@ -58,17 +92,35 @@ function EditorSync() {
       const changes = entry.changes
       if (!changes) return
 
-      // Sync newly added point shapes to store
+      // Sync newly added probe-point shapes to store (exclude fixed shapes like drain-port/inlet-port/built-in-probe)
       if (changes.added) {
         for (const record of Object.values(changes.added)) {
           if (record.typeName !== 'shape') continue
           const shape = record as any
-          if (!POINT_SHAPE_TYPES.has(shape.type)) continue
+          if (shape.type !== 'probe-point') continue
           const pd = shape.props?.pointData
           if (!pd?.label || !pd?.position) continue
           const store = useProjectStore.getState()
           if (!store.points.find((p) => p.label === pd.label)) {
             useProjectStore.setState({ points: [...store.points, pd] })
+          }
+        }
+      }
+
+      // Sync removed probe-point shapes to store
+      if (changes.removed) {
+        for (const record of Object.values(changes.removed)) {
+          if (record.typeName !== 'shape') continue
+          const shape = record as any
+          if (shape.type !== 'probe-point') continue
+          const pd = shape.props?.pointData
+          if (!pd?.label) continue
+          const store = useProjectStore.getState()
+          const exists = store.points.find((p) => p.label === pd.label)
+          if (exists) {
+            useProjectStore.setState({
+              points: store.points.filter((p) => p.label !== pd.label),
+            })
           }
         }
       }
@@ -120,13 +172,48 @@ function EditorSync() {
         const relX = isChild ? shape.x : shape.x - cx
         const relY = isChild ? shape.y : shape.y - cy
         const pointZ = shape.props?.pointData?.position?.z ?? useProjectStore.getState().currentZLevel
-        const pos3D = unproject2Dto3D(relX, relY, pointZ, CHAMBER_SCALE)
+        const pos3D = projections[viewMode].unproject(relX, relY, pointZ, CHAMBER_SCALE)
 
-        pendingUpdates.current.set(newLabel, {
-          x: Math.max(0, pos3D.x),
-          y: Math.max(0, pos3D.y),
-          z: pointZ,
+        // Clamp to chamber bounds to prevent dragging outside the chamber
+        const { width, depth, height } = useProjectStore.getState().chamber.dimensions
+        const clampedPos = {
+          x: Math.max(0, Math.min(width, pos3D.x)),
+          y: Math.max(0, Math.min(depth, pos3D.y)),
+          z: Math.max(0, Math.min(height, pointZ)),
+        }
+
+        // B2: If clamped, sync shape back to clamped position so visuals match data
+        if (clampedPos.x !== pos3D.x || clampedPos.y !== pos3D.y) {
+          const clampedScreen = project3Dto2D(clampedPos.x, clampedPos.y, pointZ, CHAMBER_SCALE)
+          // history.ignore prevents this corrective update from polluting undo/redo stack
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(editor as any).history.ignore(() => {
+            editor.updateShape({
+              id: shape.id,
+              type: shape.type as any,
+              x: cx + clampedScreen.x,
+              y: cy + clampedScreen.y,
+            })
+          })
+        }
+
+        // P3: Sync position back to shape.props.pointData for ALL point shape types
+        // (probe-point → store.points via flushUpdates; fixed shapes → only shape props)
+        editor.updateShape({
+          id: shape.id,
+          type: shape.type as any,
+          props: { pointData: { ...shape.props.pointData, position: clampedPos } },
         })
+
+        pendingUpdates.current.set(newLabel, clampedPos)
+
+        // Update global drag state for status bar
+        currentDragLabel = newLabel
+        currentDragPos = clampedPos
+        notifyDragChange()
+
+        // B1: Reset drag-end timer — clears state 150ms after last movement
+        clearDragStateAfterTimeout()
 
         if (!rafId.current) {
           rafId.current = requestAnimationFrame(flushUpdates)

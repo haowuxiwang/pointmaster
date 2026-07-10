@@ -1,6 +1,7 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Rectangle2d } from 'tldraw'
 import { cuboidPath, cylinderPath } from './utils'
-import { project3Dto2D, CHAMBER_SCALE, CYLINDER_COMPRESSION } from '@/core/projection/isometric'
+import { project3Dto2D, CHAMBER_SCALE, CYLINDER_COMPRESSION, projections } from '@/core/projection/isometric'
+import { useProjectStore } from '@/store/projectStore'
 import type { Chamber, RoomContext } from '@/types'
 
 type ChamberShape = TLBaseShape<'chamber', {
@@ -186,6 +187,9 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     const isEditing = this.editor.getEditingShapeId() === shape.id
     const { type, dimensions } = chamberData
     const { width, depth, height, layers = 1 } = dimensions
+    // Subscribe to viewMode for projection + hidden line updates
+    const viewMode = useProjectStore((s) => s.viewMode)
+    const projection = projections[viewMode]
 
     let layerPath: string = ''
     let headPath: string = ''
@@ -221,8 +225,8 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
       nozzleLabels = result.nozzleLabels
       coilPath = result.coilPath
     } else {
-      // Cuboid (and polygon fallback): compute wireframe once
-      const result = cuboidPath(width, depth, height, 0.2, layers)
+      // Cuboid (and polygon fallback): compute wireframe with current view's camera direction
+      const result = cuboidPath(width, depth, height, 0.2, layers, projection.cameraDir)
       layerPath = result.layers
       visibleEdgesPath = result.visibleEdges
       hiddenEdgesPath = result.hiddenEdges
