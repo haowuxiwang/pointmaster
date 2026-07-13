@@ -101,7 +101,17 @@ export interface ProjectData {
   drainPorts?: ProbePointData[];
   inletPorts?: ProbePointData[];
   builtInProbes?: ProbePointData[];
-  description?: { content: string; x: number; y: number };
+  description?: { content: string; x: number; y: number; w?: number; h?: number };
+  /** Current Z-axis slider position (mm) for restoring workspace state */
+  currentZLevel?: number;
+  /** View mode for restoring workspace state */
+  viewMode?: import('@/core/projection/isometric').ViewMode;
+  /** User-created dimension annotations */
+  dimensions?: Array<{ from: Point3D; to: Point3D; label: string; x: number; y: number }>;
+  /** User-created legend */
+  legends?: Array<{ title: string; entries: Array<{ label: string; description: string }>; x: number; y: number }>;
+  /** User-created text annotations (excluding placement-desc) */
+  annotations?: Array<{ content: string; fontSize: number; x: number; y: number; w?: number; h?: number }>;
 }
 
 /** 设备模板 */
@@ -134,6 +144,6 @@ export const POINT_SHAPE_TYPES: ReadonlySet<string> = new Set<PointShapeType>([
 ])
 
 /** Type guard: check if a tldraw shape has pointData */
-export function hasPointData(shape: { type: string; props: Record<string, unknown> }): shape is typeof shape & { type: PointShapeType; props: { pointData: ProbePointData } } {
+export function hasPointData(shape: { type: string; props: Record<string, any> }): shape is { type: PointShapeType; props: { pointData: ProbePointData } } {
   return POINT_SHAPE_TYPES.has(shape.type) && 'pointData' in shape.props && shape.props.pointData != null
 }

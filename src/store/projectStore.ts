@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Chamber, ProbePointData, EquipmentTemplate, ProjectData, PlacementParams } from '@/types';
+import type { Chamber, ProbePointData, EquipmentTemplate, ProjectData, PlacementParams } from '@/types';
 import { uniformPlacement } from '@/core/placement';
 import { CHAMBER_SCALE, ViewMode, projections } from '@/core/projection/isometric';
 import { generatePlacementDescription } from '@/utils/description';
@@ -383,24 +383,36 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   saveProject: () => {
-    const { projectName, chamber, points, createdAt, editor, currentZLevel } = get();
+    const { projectName, chamber, points, createdAt, editor, currentZLevel, viewMode } = get();
     const now = new Date().toISOString();
 
-    // Collect additional shapes from canvas
     let drainPorts: ProbePointData[] = [];
     let inletPorts: ProbePointData[] = [];
     let builtInProbes: ProbePointData[] = [];
-    let description: { content: string; x: number; y: number } | undefined;
+    let description: { content: string; x: number; y: number; w: number; h: number } | undefined;
+    const dimensions: ProjectData['dimensions'] = [];
+    const legends: ProjectData['legends'] = [];
+    const annotations: ProjectData['annotations'] = [];
 
     if (editor) {
       for (const shape of editor.getCurrentPageShapes()) {
+        const props = shape.props as any;
         if (hasPointData(shape) && shape.props.pointData) {
           const pd = shape.props.pointData;
           if (shape.type === 'drain-port') drainPorts.push(pd);
           else if (shape.type === 'inlet-port') inletPorts.push(pd);
           else if (shape.type === 'built-in-probe') builtInProbes.push(pd);
-        } else if (shape.type === 'text-annotation' && shape.id === createShapeId('placement-desc')) {
-          description = { content: (shape.props as any).content, x: shape.x, y: shape.y };
+        } else if (shape.type === 'text-annotation') {
+          if (shape.id === createShapeId('placement-desc')) {
+            description = { content: props.content, x: shape.x, y: shape.y, w: props.w, h: props.h };
+          } else {
+            // User-created text annotation
+            annotations.push({ content: props.content, fontSize: props.fontSize, x: shape.x, y: shape.y, w: props.w, h: props.h });
+          }
+        } else if (shape.type === 'dimension') {
+          dimensions.push({ from: props.from, to: props.to, label: props.label, x: shape.x, y: shape.y });
+        } else if (shape.type === 'legend') {
+          legends.push({ title: props.title, entries: props.entries, x: shape.x, y: shape.y });
         }
       }
     }
@@ -409,7 +421,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       version: '1.0', name: projectName, chamber, points,
       createdAt: createdAt ?? now, updatedAt: now,
       drainPorts, inletPorts, builtInProbes, description,
-      currentZLevel,
+      currentZLevel, viewMode,
+      dimensions, legends, annotations,
     };
   },
 
@@ -452,50 +465,45 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       currentZLevel: data.currentZLevel !== undefined
         ? Math.max(0, Math.min(data.currentZLevel, data.chamber.dimensions.height))
         : Math.max(0, Math.min(get().currentZLevel, data.chamber.dimensions.height)),
+      viewMode: data.viewMode ?? 'isometric',
       pendingProject: null,
       pendingTemplate: null,
     });
 
-    // Rebuild tldraw shapes
-    const { editor } = get();
+    const { editor } = get()
     if (!editor) {
-      // Editor not ready yet — defer canvas rebuild
       set({ pendingProject: data })
       return
     }
     if (editor) {
-      const shapes = editor.getCurrentPageShapes();
-      editor.deleteShapes(shapes.map((s) => s.id));
+      const shapes = editor.getCurrentPageShapes()
+      editor.deleteShapes(shapes.map((s) => s.id))
 
-      const chamberId = createShapeId('chamber');
+      const chamberId = createShapeId('chamber')
       editor.createShape({
         id: chamberId,
         type: 'chamber',
         x: 100,
         y: 100,
         props: { w: 800, h: 600, chamberData: data.chamber },
-      });
-      set({ chamberShapeId: chamberId });
+      })
+      set({ chamberShapeId: chamberId })
 
-      // Rebuild point shapes as child shapes of chamber
+      // Rebuild point shapes
       data.points.forEach((point, index) => {
         createPointShape(editor, chamberId, point, index)
-      });
+      })
 
-      // Restore drain ports
-      (data.drainPorts ?? []).forEach((pd, i) => {
+      // Restore fixed ports
+      ;(data.drainPorts ?? []).forEach((pd, i) => {
         createPointShape(editor, chamberId, pd, i, 'drain-port')
-      });
-
-      // Restore inlet ports
-      (data.inletPorts ?? []).forEach((pd, i) => {
+      })
+      ;(data.inletPorts ?? []).forEach((pd, i) => {
         createPointShape(editor, chamberId, pd, i, 'inlet-port')
-      });
-
-      // Restore built-in probes
-      (data.builtInProbes ?? []).forEach((pd, i) => {
+      })
+      ;(data.builtInProbes ?? []).forEach((pd, i) => {
         createPointShape(editor, chamberId, pd, i, 'built-in-probe')
-      });
+      })
 
       // Restore description
       if (data.description) {
@@ -504,9 +512,39 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           type: 'text-annotation',
           x: data.description.x,
           y: data.description.y,
-          props: { w: 300, h: 120, content: data.description.content, fontSize: 11 },
+          props: { w: data.description.w ?? 300, h: data.description.h ?? 120, content: data.description.content, fontSize: 11 },
         })
       }
+
+      // Restore dimensions
+      ;(data.dimensions ?? []).forEach((d) => {
+        editor.createShape({
+          type: 'dimension',
+          x: d.x,
+          y: d.y,
+          props: { from: d.from, to: d.to, label: d.label },
+        })
+      })
+
+      // Restore legends
+      ;(data.legends ?? []).forEach((l) => {
+        editor.createShape({
+          type: 'legend',
+          x: l.x,
+          y: l.y,
+          props: { title: l.title, entries: l.entries },
+        })
+      })
+
+      // Restore user annotations
+      ;(data.annotations ?? []).forEach((a) => {
+        editor.createShape({
+          type: 'text-annotation',
+          x: a.x,
+          y: a.y,
+          props: { content: a.content, fontSize: a.fontSize, w: a.w, h: a.h },
+        })
+      })
     }
   },
   loadTemplate: (template) => {
