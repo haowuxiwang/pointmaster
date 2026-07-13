@@ -14,6 +14,7 @@ import ViewControls from './ViewControls'
 import StatusBar from './StatusBar'
 import { exportToSVG, type ExportMetadata } from '@/core/export/svgExport'
 import { exportToPNG } from '@/core/export/pngExport'
+import { generateCSV } from '@/core/export/csvExport'
 import { useProjectStore } from '@/store/projectStore'
 import { saveProjectToFile, loadProjectFromFile, getRecentProjects } from '@/utils/fileIO'
 
@@ -168,6 +169,23 @@ export default function Layout() {
     }
   }
 
+  const handleExportCSV = () => {
+    if (!editor) { showToast('编辑器未初始化', 'error'); return }
+    try {
+      const store = useProjectStore.getState()
+      const shapes = editor.getCurrentPageShapes()
+      const fixedShapes = shapes
+        .filter((s) => ['drain-port', 'inlet-port', 'built-in-probe'].includes(s.type) && (s.props as any)?.pointData)
+        .map((s) => ({ type: s.type, position: (s.props as any).pointData.position, label: (s.props as any).pointData.label }))
+      const csvContent = generateCSV(store.chamber, store.points, fixedShapes)
+      const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8' })
+      downloadBlob(blob, getExportFilename('csv'))
+      showToast('CSV 已导出', 'success')
+    } catch (err) {
+      showToast('导出 CSV 失败', 'error')
+    }
+  }
+
   const recentProjects = getRecentProjects()
 
   return (
@@ -180,6 +198,7 @@ export default function Layout() {
           <button className="hover:text-gray-800" onClick={handleSave}>保存</button>
           <button className="hover:text-gray-800" onClick={handleOpen}>打开</button>
           <button className="hover:text-gray-800" onClick={handleExportSVG}>导出SVG</button>
+          <button className="hover:text-gray-800" onClick={handleExportCSV}>导出CSV</button>
           <div className="flex items-center gap-1">
             <button className="hover:text-gray-800" onClick={handleExportPNG}>导出PNG</button>
             <select
@@ -343,5 +362,6 @@ function downloadBlob(blob: Blob, filename: string) {
   a.href = url
   a.download = filename
   a.click()
-  URL.revokeObjectURL(url)
+  // Delay revoke to ensure browser finishes reading the blob
+  setTimeout(() => URL.revokeObjectURL(url), 2000)
 }

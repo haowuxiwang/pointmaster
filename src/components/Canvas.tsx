@@ -55,7 +55,6 @@ const tools = [ProbePointTool, DrainPortTool, BuiltInProbeTool, InletPortTool]
 function EditorSync() {
   const editor = useEditor()
   const setEditor = useProjectStore((s) => s.setEditor)
-  const viewMode = useProjectStore((s) => s.viewMode)
   const pendingUpdates = useRef<Map<string, { x: number; y: number; z: number }>>(new Map())
   const rafId = useRef<number | null>(null)
   const chamberPosRef = useRef({ x: 100, y: 100 })
@@ -172,7 +171,9 @@ function EditorSync() {
         const relX = isChild ? shape.x : shape.x - cx
         const relY = isChild ? shape.y : shape.y - cy
         const pointZ = shape.props?.pointData?.position?.z ?? useProjectStore.getState().currentZLevel
-        const pos3D = projections[viewMode].unproject(relX, relY, pointZ, CHAMBER_SCALE)
+        // Read viewMode in real-time to avoid stale closure
+        const currentViewMode = useProjectStore.getState().viewMode
+        const pos3D = projections[currentViewMode].unproject(relX, relY, pointZ, CHAMBER_SCALE)
 
         // Clamp to chamber bounds to prevent dragging outside the chamber
         const { width, depth, height } = useProjectStore.getState().chamber.dimensions
@@ -224,6 +225,8 @@ function EditorSync() {
     return () => {
       unsubscribe()
       if (rafId.current) cancelAnimationFrame(rafId.current)
+      // Flush any pending updates before unmount to prevent data loss
+      flushUpdates()
       setEditor(null)
     }
   }, [editor, setEditor])
