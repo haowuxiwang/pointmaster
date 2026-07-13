@@ -25,8 +25,8 @@ export class BuiltInProbeShapeUtil extends ShapeUtil<BuiltInProbeShape> {
     return {
       w: 30,
       h: 30,
-      label: 'B1',
-      pointData: { label: 'B1', position: { x: 0, y: 0, z: 0 }, properties: {} },
+      label: '自带探头',
+      pointData: { label: '自带探头', position: { x: 0, y: 0, z: 0 }, properties: {} },
     }
   }
 
@@ -74,11 +74,12 @@ export class BuiltInProbeShapeUtil extends ShapeUtil<BuiltInProbeShape> {
               defaultValue={label}
               style={{
                 width: '100%',
-                fontSize: '10px',
-                color: '#000',
-                border: '1px solid #000',
-                borderRadius: '2px',
-                padding: '1px 2px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                color: '#333',
+                border: '1px solid #00bcd4',
+                borderRadius: '3px',
+                padding: '1px 3px',
                 outline: 'none',
                 background: 'white',
                 textAlign: 'center',

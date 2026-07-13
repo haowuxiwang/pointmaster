@@ -1,4 +1,4 @@
-import { Chamber, ProbePointData, Point3D } from '@/types';
+import type { Chamber, ProbePointData, Point3D } from '@/types';
 
 interface AnchorPoint {
   position: Point3D;
@@ -6,17 +6,18 @@ interface AnchorPoint {
   type: string; // 'drain-port' | 'inlet-port' | 'built-in-probe'
 }
 
-function clampToChamber(pos: Point3D, chamber: Chamber): Point3D {
-  const { width, depth, height } = chamber.dimensions;
-  return {
-    x: Math.max(0, Math.min(width, pos.x)),
-    y: Math.max(0, Math.min(depth, pos.y)),
-    z: Math.max(0, Math.min(height, pos.z)),
-  };
-}
-
 function distance3D(a: Point3D, b: Point3D): number {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
+}
+
+/** Check if a 3D point lies inside the chamber's XY cross-section */
+function isInsideChamberXY(x: number, y: number, chamber: Chamber): boolean {
+  const { type, dimensions } = chamber
+  if (type !== 'cylinder') return true // cuboid: always inside
+  const radius = chamber.radius ?? Math.min(dimensions.width, dimensions.depth) / 2
+  const cx = dimensions.width / 2
+  const cy = dimensions.depth / 2
+  return ((x - cx) ** 2 + (y - cy) ** 2) <= radius * radius
 }
 
 export function uniformPlacement(
@@ -26,18 +27,10 @@ export function uniformPlacement(
 ): ProbePointData[] {
   const { includeCenter = true, anchorPoints = [] } = options;
   const { width, depth, height, layers = 1 } = chamber.dimensions;
-  const ventPorts = chamber.ventPorts ?? [];
 
   // Helper: re-label all points sequentially as T1, T2, T3...
   const relabel = (pts: ProbePointData[]): ProbePointData[] =>
     pts.map((p, i) => ({ ...p, label: `T${i + 1}` }));
-
-  // Generate points for vent ports (cold points) — these are mandatory and always included
-  const ventPoints: ProbePointData[] = ventPorts.map((pos, i) => ({
-    label: `C${i + 1}`,
-    position: pos,
-    properties: { type: 'vent-port' },
-  }));
 
   // Corner points for cuboid (inset 5% from edges)
   const inset = 0.05;
@@ -52,9 +45,11 @@ export function uniformPlacement(
     { x: width * (1 - inset), y: depth * (1 - inset), z: height * (1 - inset) },
   ];
 
-  // Key points (corners + optional center)
+  // Filter keypoints to those inside chamber cross-section (relevant for cylinder)
   const keyPoints: ProbePointData[] = [];
   cornerPositions.forEach((pos, i) => {
+    // For cylinder: skip corners outside circular cross-section
+    if (chamber.type === 'cylinder' && !isInsideChamberXY(pos.x, pos.y, chamber)) return;
     keyPoints.push({
       label: `K${i + 1}`,
       position: pos,
@@ -69,10 +64,10 @@ export function uniformPlacement(
     });
   }
 
-  // Assemble mandatory points (vent ports + corners + center)
+  // Assemble mandatory points (corners + center only)
+  // vent-ports are NOT counted in totalCount — they are added alongside the budgeted points
   // Anchor points (drain/inlet/built-in) are NOT mandatory — they don't consume budget
   const allMandatory: ProbePointData[] = [
-    ...ventPoints,
     ...keyPoints,
   ];
 
@@ -110,13 +105,13 @@ export function uniformPlacement(
 
       for (let iy = 0; iy < ny && budget > 0; iy++) {
         for (let ix = 0; ix < nx && budget > 0; ix++) {
+          const px = calcPosition(ix, nx, width);
+          const py = calcPosition(iy, ny, depth);
+          // For cylinder: skip grid points outside circular cross-section
+          if (chamber.type === 'cylinder' && !isInsideChamberXY(px, py, chamber)) continue;
           gridPoints.push({
             label: `T${globalIndex}`,
-            position: {
-              x: calcPosition(ix, nx, width),
-              y: calcPosition(iy, ny, depth),
-              z: layerZ,
-            },
+            position: { x: px, y: py, z: layerZ },
             properties: {},
           });
           globalIndex++;
@@ -156,13 +151,13 @@ export function uniformPlacement(
       for (let iz = 0; iz < nz && gridPoints.length < remainingCount; iz++) {
         for (let iy = 0; iy < ny && gridPoints.length < remainingCount; iy++) {
           for (let ix = 0; ix < nx && gridPoints.length < remainingCount; ix++) {
+            const px = calcPosition(ix, nx, width);
+            const py = calcPosition(iy, ny, depth);
+            // For cylinder: skip grid points outside circular cross-section
+            if (chamber.type === 'cylinder' && !isInsideChamberXY(px, py, chamber)) continue;
             gridPoints.push({
               label: `T${index}`,
-              position: {
-                x: calcPosition(ix, nx, width),
-                y: calcPosition(iy, ny, depth),
-                z: calcPosition(iz, nz, height),
-              },
+              position: { x: px, y: py, z: calcPosition(iz, nz, height) },
               properties: {},
             });
             index++;
@@ -175,16 +170,18 @@ export function uniformPlacement(
   // Combine mandatory + grid points
   const allPoints = [...selectedMandatory, ...gridPoints];
 
-  // Anchor nearby placement: for each anchor point, find the nearest non-vent/non-corner
-  // grid point and move it to be near the anchor (offset 50mm toward chamber center)
-  const ANCHOR_OFFSET = 50; // mm
+  // Anchor overlap placement: for each anchor point, find the nearest grid point
+  // and move it to EXACTLY coincide with the anchor position.
+  // Users can later drag the point away on the canvas if needed.
   const usedAnchorIndices = new Set<number>();
+  const skippedAnchors: AnchorPoint[] = [];
+  const availableGridCount = allPoints.length - selectedMandatory.length;
 
   for (const anchor of anchorPoints) {
     let bestIdx = -1;
     let bestDist = Infinity;
 
-    // Find nearest grid point (skip mandatory vent/corner/center points)
+    // Find nearest grid point (skip mandatory corner/center points)
     for (let i = selectedMandatory.length; i < allPoints.length; i++) {
       if (usedAnchorIndices.has(i)) continue;
       const d = distance3D(allPoints[i].position, anchor.position);
@@ -195,33 +192,26 @@ export function uniformPlacement(
     }
 
     if (bestIdx >= 0) {
-      // Move the grid point to be near the anchor
-      // Offset direction: from anchor toward chamber center (inward)
-      const center: Point3D = { x: width / 2, y: depth / 2, z: height / 2 };
-      const dx = center.x - anchor.position.x;
-      const dy = center.y - anchor.position.y;
-      const dz = center.z - anchor.position.z;
-      const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-      let newPos: Point3D;
-      if (len > 0) {
-        newPos = {
-          x: anchor.position.x + (dx / len) * ANCHOR_OFFSET,
-          y: anchor.position.y + (dy / len) * ANCHOR_OFFSET,
-          z: anchor.position.z + (dz / len) * ANCHOR_OFFSET,
-        };
-      } else {
-        // Anchor is at exact center — just place it there
-        newPos = { ...anchor.position };
-      }
-
+      // Place the probe exactly at the anchor position (user can drag it away later)
       allPoints[bestIdx] = {
         ...allPoints[bestIdx],
-        position: clampToChamber(newPos, chamber),
-        properties: { type: `nearby-${anchor.type}` },
+        position: { ...anchor.position },
+        properties: { type: `at-${anchor.type}` },
       };
       usedAnchorIndices.add(bestIdx);
+    } else {
+      // No grid point available — anchor count exceeds grid point count
+      skippedAnchors.push(anchor);
     }
+  }
+
+  // Emit warning if some anchors couldn't be matched (grid points exhausted)
+  if (skippedAnchors.length > 0) {
+    console.warn(
+      `[uniformPlacement] ${skippedAnchors.length} anchor(s) could not be matched: ` +
+      `grid points (${availableGridCount}) < anchor points (${anchorPoints.length}). ` +
+      `Increase total count or reduce anchors.`
+    );
   }
 
   return relabel(allPoints);

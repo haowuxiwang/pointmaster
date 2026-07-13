@@ -1,5 +1,5 @@
 import type { Editor } from 'tldraw'
-import { unproject2Dto3D, CHAMBER_SCALE } from '@/core/projection/isometric'
+import { CHAMBER_SCALE, projections } from '@/core/projection/isometric'
 import { useProjectStore } from '@/store/projectStore'
 import type { Point3D } from '@/types'
 
@@ -22,13 +22,15 @@ export function pagePointToChamber3D(
   const offsetX = pageX - chamberOriginX
   const offsetY = pageY - chamberOriginY
 
-  const { currentZLevel, chamber } = useProjectStore.getState()
+  const { currentZLevel, chamber, viewMode } = useProjectStore.getState()
+  const projection = projections[viewMode]
 
-  const pos2D = unproject2Dto3D(offsetX, offsetY, currentZLevel, CHAMBER_SCALE)
+  // Convert chamber-relative screen coords to 3D chamber coordinates
+  const pos = projection.unproject(offsetX, offsetY, currentZLevel, CHAMBER_SCALE)
 
   return {
-    x: Math.max(0, Math.min(chamber.dimensions.width, pos2D.x)),
-    y: Math.max(0, Math.min(chamber.dimensions.depth, pos2D.y)),
-    z: currentZLevel,
+    x: Math.max(0, Math.min(chamber.dimensions.width, pos.x)),
+    y: Math.max(0, Math.min(chamber.dimensions.depth, pos.y)),
+    z: Math.max(0, Math.min(chamber.dimensions.height, pos.z)),
   }
 }

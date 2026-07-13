@@ -58,20 +58,15 @@ describe('uniformPlacement', () => {
     expect(points).toHaveLength(12);
   });
 
-  it('moves a grid point near each anchor and marks it as nearby-*', () => {
+  it('places a grid point exactly at anchor position (at-*)', () => {
     const anchors = [
       { position: { x: 100, y: 100, z: 400 }, label: 'D1', type: 'drain-port' },
     ];
     const points = uniformPlacement(testChamber, 12, { includeCenter: true, anchorPoints: anchors });
-    const nearbyPoints = points.filter((p) => p.properties.type === 'nearby-drain-port');
-    expect(nearbyPoints).toHaveLength(1);
-    // The nearby point should be within 60mm of the anchor (50mm offset + some tolerance)
-    const dist = Math.sqrt(
-      (nearbyPoints[0].position.x - 100) ** 2 +
-      (nearbyPoints[0].position.y - 100) ** 2 +
-      (nearbyPoints[0].position.z - 400) ** 2
-    );
-    expect(dist).toBeLessThan(80);
+    const atPoints = points.filter((p) => p.properties.type === 'at-drain-port');
+    expect(atPoints).toHaveLength(1);
+    // The point should be exactly at the anchor position (0mm offset)
+    expect(atPoints[0].position).toEqual({ x: 100, y: 100, z: 400 });
   });
 
   it('does not consume budget for anchor points', () => {
@@ -83,8 +78,22 @@ describe('uniformPlacement', () => {
     ];
     const points = uniformPlacement(testChamber, 12, { includeCenter: true, anchorPoints: anchors });
     expect(points).toHaveLength(12);
-    const nearbyPoints = points.filter((p) => p.properties.type?.startsWith('nearby-'));
-    expect(nearbyPoints).toHaveLength(2);
+    const atPoints = points.filter((p) => p.properties.type?.startsWith('at-'));
+    expect(atPoints).toHaveLength(2);
+  });
+
+  it('anchor overlap is exactly at anchor coordinates for multiple anchors', () => {
+    const anchors = [
+      { position: { x: 100, y: 100, z: 400 }, label: 'D1', type: 'drain-port' },
+      { position: { x: 900, y: 500, z: 400 }, label: 'I1', type: 'inlet-port' },
+    ];
+    const points = uniformPlacement(testChamber, 12, { includeCenter: true, anchorPoints: anchors });
+    const atDrain = points.filter((p) => p.properties.type === 'at-drain-port');
+    const atInlet = points.filter((p) => p.properties.type === 'at-inlet-port');
+    expect(atDrain).toHaveLength(1);
+    expect(atInlet).toHaveLength(1);
+    expect(atDrain[0].position).toEqual({ x: 100, y: 100, z: 400 });
+    expect(atInlet[0].position).toEqual({ x: 900, y: 500, z: 400 });
   });
 
   it('keeps center only if budget allows after corners', () => {
@@ -113,11 +122,12 @@ describe('uniformPlacement', () => {
     points.forEach((p, i) => expect(p.label).toBe(`T${i + 1}`));
   });
 
-  it('handles ventPorts from chamber', () => {
+  it('vent-ports are NOT placed automatically — total is exactly totalCount', () => {
+    // Cold points (vent-ports) are only known after validation, not before
     const points = uniformPlacement(chamberWithVentPorts, 12, { includeCenter: true });
     expect(points).toHaveLength(12);
     const ventPoints = points.filter((p) => p.properties.type === 'vent-port');
-    expect(ventPoints).toHaveLength(2);
+    expect(ventPoints).toHaveLength(0);
   });
 
   it('shaker room: 12 points across 3 layers, 4 per layer', () => {

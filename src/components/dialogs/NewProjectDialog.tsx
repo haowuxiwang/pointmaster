@@ -129,7 +129,7 @@ export default function NewProjectDialog({ open, onClose }: Props) {
                 <input
                   type="number"
                   min={1}
-                  max={10}
+                  max={20}
                   value={layers}
                   onChange={(e) => setLayers(Math.max(1, Math.min(10, +e.target.value)))}
                   className="w-full border rounded px-3 py-1.5 text-sm"

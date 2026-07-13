@@ -65,19 +65,23 @@ export type ViewMode = 'isometric' | 'front'
 
 export interface Projection {
   project(x: number, y: number, z: number, scale: number): Point2D
-  unproject(sx: number, sy: number, z: number, scale: number): Point2D
+  unproject(sx: number, sy: number, z: number, scale: number): { x: number; y: number; z: number }
   cameraDir: { x: number; y: number; z: number }
 }
 
 const isoProjection: Projection = {
   project: project3Dto2D,
-  unproject: unproject2Dto3D,
+  unproject: (sx, sy, z, scale) => {
+    const p = unproject2Dto3D(sx, sy, z, scale)
+    return { x: p.x, y: p.y, z }
+  },
   cameraDir: { x: 1, y: 1, z: 1 },
 }
 
 const frontProjection: Projection = {
   project: (x, _y, z, scale) => ({ x: x * scale, y: -z * scale }),
-  unproject: (sx, sy, _z, scale) => ({ x: sx / scale, y: -sy / scale }),
+  // Front view: screen_x → world_x, screen_y → world_z (depth Y unchanged)
+  unproject: (sx, sy, z, scale) => ({ x: sx / scale, y: z, z: -sy / scale }),
   cameraDir: { x: 0, y: -1, z: 0 },
 }
 

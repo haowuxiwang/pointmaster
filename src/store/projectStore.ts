@@ -8,7 +8,7 @@ import type { Editor, TLShapeId } from 'tldraw';
 import { createShapeId } from 'tldraw';
 
 /** Compute the chamber geometry offset (minX, minY) for the current projection */
-function getChamberGeometryOffset(): { dx: number; dy: number } {
+export function getChamberGeometryOffset(): { dx: number; dy: number } {
   const { chamber, viewMode } = useProjectStore.getState()
   const { width, depth, height } = chamber.dimensions
   const proj = projections[viewMode]

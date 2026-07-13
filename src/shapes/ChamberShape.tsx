@@ -108,7 +108,10 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     const { chamberData } = shape.props
     const { type, dimensions } = chamberData
     const { width, depth, height } = dimensions
-    const p = (x: number, y: number, z: number) => project3Dto2D(x, y, z, CHAMBER_SCALE)
+    // Use current view's projection for bounds (avoids mismatch in front view)
+    const viewMode = useProjectStore.getState().viewMode
+    const proj = projections[viewMode] ?? projections.isometric
+    const p = (x: number, y: number, z: number) => proj.project(x, y, z, CHAMBER_SCALE)
 
     if (type === 'cylinder') {
       // 2D front view bounds

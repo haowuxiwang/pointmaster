@@ -7,6 +7,7 @@ vi.mock('@/store/projectStore', () => ({
   useProjectStore: {
     getState: () => ({
       currentZLevel: 400,
+      viewMode: 'isometric',
       chamber: {
         type: 'cuboid',
         name: 'test',

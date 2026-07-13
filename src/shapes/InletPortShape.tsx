@@ -80,11 +80,12 @@ export class InletPortShapeUtil extends ShapeUtil<InletPortShape> {
               defaultValue={label}
               style={{
                 width: '100%',
-                fontSize: '10px',
-                color: '#000',
-                border: '1px solid #000',
-                borderRadius: '2px',
-                padding: '1px 2px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                color: '#333',
+                border: '1px solid #00bcd4',
+                borderRadius: '3px',
+                padding: '1px 3px',
                 outline: 'none',
                 background: 'white',
                 textAlign: 'center',

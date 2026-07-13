@@ -51,10 +51,13 @@ function distance3D(a: Point3D, b: Point3D): number {
 
 function nearbyTypeLabel(type: string): string | null {
   switch (type) {
+    case 'at-drain-port': return '与排水口重合'
+    case 'at-inlet-port': return '与进气口重合'
+    case 'at-built-in-probe': return '与自带探头重合'
+    case 'vent-port': return '排气口冷点'
     case 'nearby-drain-port': return '靠近排水口'
     case 'nearby-inlet-port': return '靠近进气口'
     case 'nearby-built-in-probe': return '靠近自带探头'
-    case 'vent-port': return '靠近排气口冷点'
     default: return null
   }
 }

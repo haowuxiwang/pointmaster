@@ -13,8 +13,8 @@ import { ProbePointTool } from '@/tools/ProbePointTool'
 import { DrainPortTool } from '@/tools/DrainPortTool'
 import { BuiltInProbeTool } from '@/tools/BuiltInProbeTool'
 import { InletPortTool } from '@/tools/InletPortTool'
-import { useProjectStore } from '@/store/projectStore'
-import { project3Dto2D, CHAMBER_SCALE, projections } from '@/core/projection/isometric'
+import { useProjectStore, getChamberGeometryOffset } from '@/store/projectStore'
+import { CHAMBER_SCALE, projections } from '@/core/projection/isometric'
 import { POINT_SHAPE_TYPES } from '@/types'
 
 /** Global drag state shared between EditorSync and Layout via zustand */
@@ -180,30 +180,34 @@ function EditorSync() {
         const clampedPos = {
           x: Math.max(0, Math.min(width, pos3D.x)),
           y: Math.max(0, Math.min(depth, pos3D.y)),
-          z: Math.max(0, Math.min(height, pointZ)),
+          z: Math.max(0, Math.min(height, pos3D.z)),
         }
 
         // B2: If clamped, sync shape back to clamped position so visuals match data
-        if (clampedPos.x !== pos3D.x || clampedPos.y !== pos3D.y) {
-          const clampedScreen = project3Dto2D(clampedPos.x, clampedPos.y, pointZ, CHAMBER_SCALE)
+        if (clampedPos.x !== pos3D.x || clampedPos.y !== pos3D.y || clampedPos.z !== pos3D.z) {
+          const clampedScreen = projections[currentViewMode].project(clampedPos.x, clampedPos.y, clampedPos.z, CHAMBER_SCALE)
+          const offset = getChamberGeometryOffset()
           // history.ignore prevents this corrective update from polluting undo/redo stack
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ;(editor as any).history.ignore(() => {
             editor.updateShape({
               id: shape.id,
               type: shape.type as any,
-              x: cx + clampedScreen.x,
-              y: cy + clampedScreen.y,
+              x: clampedScreen.x - offset.dx,
+              y: clampedScreen.y - offset.dy,
             })
           })
         }
 
         // P3: Sync position back to shape.props.pointData for ALL point shape types
         // (probe-point → store.points via flushUpdates; fixed shapes → only shape props)
-        editor.updateShape({
-          id: shape.id,
-          type: shape.type as any,
-          props: { pointData: { ...shape.props.pointData, position: clampedPos } },
+        // history.ignore prevents polluting undo stack with intermediate drag positions
+        ;(editor as any).history.ignore(() => {
+          editor.updateShape({
+            id: shape.id,
+            type: shape.type as any,
+            props: { pointData: { ...shape.props.pointData, position: clampedPos } },
+          })
         })
 
         pendingUpdates.current.set(newLabel, clampedPos)
