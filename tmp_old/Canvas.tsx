@@ -13,24 +13,9 @@ import { ProbePointTool } from '@/tools/ProbePointTool'
 import { DrainPortTool } from '@/tools/DrainPortTool'
 import { BuiltInProbeTool } from '@/tools/BuiltInProbeTool'
 import { InletPortTool } from '@/tools/InletPortTool'
-import { useProjectStore, getChamberProjectionOffset } from '@/store/projectStore'
+import { useProjectStore } from '@/store/projectStore'
 import { project3Dto2D, CHAMBER_SCALE, projections } from '@/core/projection/isometric'
 import { POINT_SHAPE_TYPES } from '@/types'
-import type { Editor } from 'tldraw'
-
-/** Debug helper: log current tldraw shapes to console */
-declare global { interface Window { __pm_debug?: () => void } }
-function installDebug(editor: Editor) {
-  window.__pm_debug = () => {
-    const shapes = editor.getCurrentPageShapes()
-    const chamber = shapes.find(s => s.type === 'chamber')
-    const points = shapes.filter(s => s.type === 'probe-point')
-    console.log('[PM_DEBUG] Chamber:', JSON.stringify(chamber ? { id: chamber.id, x: chamber.x, y: chamber.y, parentId: chamber.parentId } : null))
-    console.log('[PM_DEBUG] First 3 points:', JSON.stringify(points.slice(0, 3).map(p => ({ id: p.id, x: Math.round(p.x), y: Math.round(p.y), parent: p.parentId, label: p.props?.pointData?.label }))))
-    console.log('[PM_DEBUG] Total shapes:', shapes.length)
-    console.log('[PM_DEBUG] ViewMode:', useProjectStore.getState().viewMode)
-  }
-}
 
 /** Global drag state shared between EditorSync and Layout via zustand */
 let currentDragLabel: string | null = null
@@ -86,9 +71,6 @@ function EditorSync() {
     if (initChamber) {
       chamberPosRef.current = { x: initChamber.x, y: initChamber.y }
     }
-
-    // Install debug helper
-    installDebug(editor)
 
     // Batch update function using requestAnimationFrame — single-point precision update
     const flushUpdates = () => {
@@ -187,12 +169,10 @@ function EditorSync() {
         // Position update path (drag) — child shapes have relative coords, independent shapes need offset
         const { x: cx, y: cy } = chamberPosRef.current
         const isChild = shape.parentId !== undefined && shape.parentId !== 'page:page'
-        const offset = getChamberProjectionOffset()
-        // Convert child coords back to projected coords for unproject
-        const projX = isChild ? shape.x + offset.dx : shape.x - cx + offset.dx
-        const projY = isChild ? shape.y + offset.dy : shape.y - cy + offset.dy
+        const relX = isChild ? shape.x : shape.x - cx
+        const relY = isChild ? shape.y : shape.y - cy
         const pointZ = shape.props?.pointData?.position?.z ?? useProjectStore.getState().currentZLevel
-        const pos3D = projections[viewMode].unproject(projX, projY, pointZ, CHAMBER_SCALE)
+        const pos3D = projections[viewMode].unproject(relX, relY, pointZ, CHAMBER_SCALE)
 
         // Clamp to chamber bounds to prevent dragging outside the chamber
         const { width, depth, height } = useProjectStore.getState().chamber.dimensions
@@ -205,11 +185,15 @@ function EditorSync() {
         // B2: If clamped, sync shape back to clamped position so visuals match data
         if (clampedPos.x !== pos3D.x || clampedPos.y !== pos3D.y) {
           const clampedScreen = project3Dto2D(clampedPos.x, clampedPos.y, pointZ, CHAMBER_SCALE)
-          editor.updateShape({
-            id: shape.id,
-            type: shape.type as any,
-            x: clampedScreen.x - offset.dx,
-            y: clampedScreen.y - offset.dy,
+          // history.ignore prevents this corrective update from polluting undo/redo stack
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(editor as any).history.ignore(() => {
+            editor.updateShape({
+              id: shape.id,
+              type: shape.type as any,
+              x: cx + clampedScreen.x,
+              y: cy + clampedScreen.y,
+            })
           })
         }
 

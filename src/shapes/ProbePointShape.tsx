@@ -63,7 +63,6 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
     const isEditing = this.editor.getEditingShapeId() === shape.id
     const isSelected = this.editor.getSelectedShapeIds().includes(shape.id)
     const isHovering = this.editor.getHoveredShapeId?.() === shape.id
-    const showLabel = (isSelected || isHovering) && !isEditing
 
     return (
       <SVGContainer>
@@ -81,8 +80,8 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
         )}
         {/* Small black dot — the point marker */}
         <circle cx={0} cy={0} r={4} fill={isSelected ? '#1976d2' : '#000'} />
-        {/* Label — only shown on selection/hover to reduce visual clutter */}
-        {showLabel && (
+        {/* Label — always visible for point identification */}
+        {!isEditing && (
           <text
             x={0}
             y={-12}
