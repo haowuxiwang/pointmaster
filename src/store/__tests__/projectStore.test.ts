@@ -234,6 +234,7 @@ describe('projectStore', () => {
         (call: any) => call[0].type === 'probe-point'
       )
       expect(probeCalls).toHaveLength(10)
+      // Points are independent shapes at page coordinates (no parentId)
       expect(probeCalls[0][0].parentId).toBe('shape:chamber')
     })
 
@@ -350,11 +351,11 @@ describe('projectStore', () => {
       expect(editor.deleteShapes).toHaveBeenCalled()
       // 1 chamber + 1 point
       expect(editor.createShape).toHaveBeenCalledTimes(2)
-      // Verify point shape has parentId
+      // Verify point shape is a child of chamber
       const pointCall = (editor.createShape as any).mock.calls.find(
         (call: any) => call[0].type === 'probe-point'
       )
-      expect(pointCall[0].parentId).toBeTruthy()
+      expect(pointCall[0].parentId).toBe('shape:chamber')
     })
 
     it('restores drain ports and description from project data', () => {

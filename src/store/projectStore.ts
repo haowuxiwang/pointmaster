@@ -18,7 +18,7 @@ function createPointShape(
   const projected = projections[viewMode].project(point.position.x, point.position.y, point.position.z, CHAMBER_SCALE)
   const offset = getChamberProjectionOffset()
   const pointId = createShapeId(`${shapeType}-${index}`)
-  // Offset aligns child coords with chamber wireframe rendering
+  // Child shape: offset aligns child coords with chamber wireframe SVG origin
   editor.createShape({
     id: pointId,
     type: shapeType as any,
@@ -34,7 +34,7 @@ function createPointShape(
 }
 
 /** Compute chamber geometry offset (minX, minY) for the current projection */
-export function getChamberProjectionOffset(): { dx: number; dy: number } {
+function getChamberProjectionOffset(): { dx: number; dy: number } {
   const { chamber, viewMode } = useProjectStore.getState()
   const { width, depth, height } = chamber.dimensions
   const proj = projections[viewMode]
@@ -70,15 +70,15 @@ function syncPointsToCanvas(
   if (existingDesc) editor.deleteShapes([existingDesc.id])
   const description = generatePlacementDescription(chamber, newPoints, fixedShapes)
   const descId = createShapeId('placement-desc')
-  const chamberPagePos = editor.getShapePageTransform(chamberShapeId)?.point()
-  const chamberPageX = chamberPagePos?.x ?? 100
-  const chamberPageY = chamberPagePos?.y ?? 100
+  const cPagePos = editor.getShapePageTransform(chamberShapeId)?.point()
+  const cPageX = cPagePos?.x ?? 100
+  const cPageY = cPagePos?.y ?? 100
   const chamberBottom = getChamberProjectedBottom(chamber)
   editor.createShape({
     id: descId,
     type: 'text-annotation',
-    x: chamberPageX,
-    y: chamberPageY + chamberBottom + 30,
+    x: cPageX,
+    y: cPageY + chamberBottom + 30,
     props: { w: 300, h: 120, content: description, fontSize: 11 },
   })
 
@@ -100,6 +100,7 @@ function reprojectShapes(editor: Editor): void {
     editor.updateShape({
       id: shape.id,
       type: shape.type as any,
+      parentId: shape.parentId,
       x: projected.x - offset.dx,
       y: projected.y - offset.dy,
     })
@@ -133,6 +134,8 @@ interface ProjectState {
   recentProjects: ProjectData[];
   editor: Editor | null;
   chamberShapeId: TLShapeId | null;
+  chamberPageX: number;
+  chamberPageY: number;
   createdAt: string | null;
   viewMode: ViewMode;
   /** Pending project data waiting for editor to be ready (deferred load) */
@@ -176,6 +179,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   recentProjects: [],
   editor: null,
   chamberShapeId: null,
+  chamberPageX: 100,
+  chamberPageY: 100,
   createdAt: null,
   viewMode: 'isometric',
   pendingProject: null,
@@ -315,7 +320,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           const viewMode = get().viewMode
           const projected = projections[viewMode].project(position.x, position.y, position.z, CHAMBER_SCALE)
           const offset = getChamberProjectionOffset()
-          editor.updateShape({ id: shape.id, type: shape.type as any, x: projected.x - offset.dx, y: projected.y - offset.dy, props: { pointData: { ...shape.props.pointData, position } } })
+          editor.updateShape({ id: shape.id, type: shape.type as any, parentId: shape.parentId, x: projected.x - offset.dx, y: projected.y - offset.dy, props: { pointData: { ...shape.props.pointData, position } } })
         }
       }
     } catch (err) {
