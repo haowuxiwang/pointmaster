@@ -16,34 +16,19 @@ function createPointShape(
 ): void {
   const viewMode = useProjectStore.getState().viewMode
   const projected = projections[viewMode].project(point.position.x, point.position.y, point.position.z, CHAMBER_SCALE)
-  const offset = getChamberProjectionOffset()
   const pointId = createShapeId(`${shapeType}-${index}`)
-  // Child shape: offset aligns child coords with chamber wireframe SVG origin
   editor.createShape({
     id: pointId,
     type: shapeType as any,
     parentId: chamberShapeId,
-    x: projected.x - offset.dx,
-    y: projected.y - offset.dy,
+    x: projected.x,
+    y: projected.y,
     props: {
       w: 40,
       h: 40,
       pointData: point,
     },
   })
-}
-
-/** Compute chamber geometry offset (minX, minY) for the current projection */
-function getChamberProjectionOffset(): { dx: number; dy: number } {
-  const { chamber, viewMode } = useProjectStore.getState()
-  const { width, depth, height } = chamber.dimensions
-  const proj = projections[viewMode]
-  const p = (x: number, y: number, z: number) => proj.project(x, y, z, CHAMBER_SCALE)
-  const xs = [p(0,0,0).x, p(width,0,0).x, p(width,depth,0).x, p(0,depth,0).x,
-              p(0,0,height).x, p(width,0,height).x, p(width,depth,height).x, p(0,depth,height).x]
-  const ys = [p(0,0,0).y, p(width,0,0).y, p(width,depth,0).y, p(0,depth,0).y,
-              p(0,0,height).y, p(width,0,height).y, p(width,depth,height).y, p(0,depth,height).y]
-  return { dx: Math.min(...xs), dy: Math.min(...ys) }
 }
 
 function syncPointsToCanvas(
@@ -90,7 +75,6 @@ function syncPointsToCanvas(
 function reprojectShapes(editor: Editor): void {
   const viewMode = useProjectStore.getState().viewMode
   const projection = projections[viewMode]
-  const offset = getChamberProjectionOffset()
   const shapes = editor.getCurrentPageShapes()
   for (const shape of shapes) {
     if (!POINT_SHAPE_TYPES.has(shape.type)) continue
@@ -101,8 +85,8 @@ function reprojectShapes(editor: Editor): void {
       id: shape.id,
       type: shape.type as any,
       parentId: shape.parentId,
-      x: projected.x - offset.dx,
-      y: projected.y - offset.dy,
+      x: projected.x,
+      y: projected.y,
     })
   }
 }
@@ -319,8 +303,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         if (shape && hasPointData(shape)) {
           const viewMode = get().viewMode
           const projected = projections[viewMode].project(position.x, position.y, position.z, CHAMBER_SCALE)
-          const offset = getChamberProjectionOffset()
-          editor.updateShape({ id: shape.id, type: shape.type as any, parentId: shape.parentId, x: projected.x - offset.dx, y: projected.y - offset.dy, props: { pointData: { ...shape.props.pointData, position } } })
+          editor.updateShape({ id: shape.id, type: shape.type as any, parentId: shape.parentId, x: projected.x, y: projected.y, props: { pointData: { ...shape.props.pointData, position } } })
         }
       }
     } catch (err) {
