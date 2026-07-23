@@ -104,91 +104,40 @@ export class DirectionArrowShapeUtil extends ShapeUtil<DirectionArrowShape> {
       )
     }
 
-    // 3D isometric arrow design
-    const cx = w / 2
-    const cy = h * 0.4
-    const arrowLen = w * 0.45
-    const shaftW = 6
-    const headLen = 14
-    const headW = 12
-
-    // Arrow shaft (3D effect with side face)
-    const shaftStart = { x: cx - arrowLen / 2, y: cy + 4 }
-    const shaftEnd = { x: cx + arrowLen / 2, y: cy - 4 }
-
-    // 3D shaft side
-    const sideOffset = 3
-    const shaftSide = [
-      { x: shaftStart.x, y: shaftStart.y + shaftW },
-      { x: shaftEnd.x, y: shaftEnd.y + shaftW },
-      { x: shaftEnd.x, y: shaftEnd.y + shaftW + sideOffset },
-      { x: shaftStart.x, y: shaftStart.y + shaftW + sideOffset },
-    ]
-
-    // Arrowhead (3D)
-    const tipX = shaftEnd.x + headLen
-    const tipY = shaftEnd.y - headLen * 0.6
-
-    // 3D arrowhead side
-    const headSide = [
-      { x: shaftEnd.x, y: shaftEnd.y + headW / 2 },
-      { x: tipX, y: tipY },
-      { x: tipX, y: tipY + sideOffset },
-      { x: shaftEnd.x, y: shaftEnd.y + headW / 2 + sideOffset },
-    ]
-
-    const toPath = (pts: Array<{ x: number; y: number }>) =>
-      pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
+    // Simple line arrow pointing top-right (isometric direction)
+    const sx = w * 0.2
+    const sy = h * 0.7
+    const ex = w * 0.75
+    const ey = h * 0.2
+    const headLen = 10
+    const angle = Math.atan2(ey - sy, ex - sx)
+    const h1x = ex - headLen * Math.cos(angle - 0.4)
+    const h1y = ey - headLen * Math.sin(angle - 0.4)
+    const h2x = ex - headLen * Math.cos(angle + 0.4)
+    const h2y = ey - headLen * Math.sin(angle + 0.4)
 
     return (
       <SVGContainer>
-        {/* Shadow */}
-        <ellipse
-          cx={cx}
-          cy={h * 0.75}
-          rx={w * 0.3}
-          ry={4}
-          fill="rgba(0,0,0,0.08)"
+        {/* Line */}
+        <line
+          x1={sx} y1={sy} x2={ex} y2={ey}
+          stroke="#374151"
+          strokeWidth={2}
+          strokeLinecap="round"
         />
-
-        {/* 3D shaft side face */}
-        <path d={toPath(shaftSide)} fill="#94a3b8" stroke="none" />
-
-        {/* Shaft top face */}
-        <rect
-          x={shaftStart.x}
-          y={shaftStart.y}
-          width={arrowLen}
-          height={shaftW}
-          rx={2}
-          fill="#475569"
-          stroke="#334155"
-          strokeWidth={0.5}
-        />
-
-        {/* 3D arrowhead side face */}
-        <path d={toPath(headSide)} fill="#94a3b8" stroke="none" />
-
-        {/* Arrowhead top face */}
+        {/* Arrowhead */}
         <polygon
-          points={`${shaftEnd.x},${shaftEnd.y - headW / 2} ${shaftEnd.x},${shaftEnd.y + headW / 2} ${tipX},${tipY}`}
-          fill="#1e293b"
-          stroke="#0f172a"
-          strokeWidth={0.5}
+          points={`${ex},${ey} ${h1x},${h1y} ${h2x},${h2y}`}
+          fill="#374151"
         />
-
-        {/* Tip highlight */}
-        <circle cx={tipX} cy={tipY} r={2} fill="#60a5fa" />
-
         {/* Label */}
         <text
-          x={cx}
-          y={h - 6}
-          fontSize={12}
-          fill="#334151"
+          x={w / 2}
+          y={h - 4}
+          fontSize={11}
+          fill="#374151"
           textAnchor="middle"
-          fontWeight="600"
-          fontFamily="sans-serif"
+          fontWeight="500"
         >
           {label}
         </text>
@@ -198,45 +147,22 @@ export class DirectionArrowShapeUtil extends ShapeUtil<DirectionArrowShape> {
 
   toSvg(shape: DirectionArrowShape) {
     const { w, h, label } = shape.props
-    const cx = w / 2
-    const cy = h * 0.4
-    const arrowLen = w * 0.45
-    const shaftW = 6
-    const headLen = 14
-    const headW = 12
-    const sideOffset = 3
-
-    const shaftStart = { x: cx - arrowLen / 2, y: cy + 4 }
-    const shaftEnd = { x: cx + arrowLen / 2, y: cy - 4 }
-
-    const shaftSide = [
-      { x: shaftStart.x, y: shaftStart.y + shaftW },
-      { x: shaftEnd.x, y: shaftEnd.y + shaftW },
-      { x: shaftEnd.x, y: shaftEnd.y + shaftW + sideOffset },
-      { x: shaftStart.x, y: shaftStart.y + shaftW + sideOffset },
-    ]
-
-    const tipX = shaftEnd.x + headLen
-    const tipY = shaftEnd.y - headLen * 0.6
-    const headSide = [
-      { x: shaftEnd.x, y: shaftEnd.y + headW / 2 },
-      { x: tipX, y: tipY },
-      { x: tipX, y: tipY + sideOffset },
-      { x: shaftEnd.x, y: shaftEnd.y + headW / 2 + sideOffset },
-    ]
-
-    const toPath = (pts: Array<{ x: number; y: number }>) =>
-      pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
+    const sx = w * 0.2
+    const sy = h * 0.7
+    const ex = w * 0.75
+    const ey = h * 0.2
+    const headLen = 10
+    const angle = Math.atan2(ey - sy, ex - sx)
+    const h1x = ex - headLen * Math.cos(angle - 0.4)
+    const h1y = ey - headLen * Math.sin(angle - 0.4)
+    const h2x = ex - headLen * Math.cos(angle + 0.4)
+    const h2y = ey - headLen * Math.sin(angle + 0.4)
 
     return (
       <g>
-        <ellipse cx={cx} cy={h * 0.75} rx={w * 0.3} ry={4} fill="rgba(0,0,0,0.08)" />
-        <path d={toPath(shaftSide)} fill="#94a3b8" stroke="none" />
-        <rect x={shaftStart.x} y={shaftStart.y} width={arrowLen} height={shaftW} rx={2} fill="#475569" stroke="#334155" strokeWidth={0.5} />
-        <path d={toPath(headSide)} fill="#94a3b8" stroke="none" />
-        <polygon points={`${shaftEnd.x},${shaftEnd.y - headW / 2} ${shaftEnd.x},${shaftEnd.y + headW / 2} ${tipX},${tipY}`} fill="#1e293b" stroke="#0f172a" strokeWidth={0.5} />
-        <circle cx={tipX} cy={tipY} r={2} fill="#60a5fa" />
-        <text x={cx} y={h - 6} fontSize={12} fill="#334151" textAnchor="middle" fontWeight="600" fontFamily="sans-serif">{label}</text>
+        <line x1={sx} y1={sy} x2={ex} y2={ey} stroke="#374151" strokeWidth={2} strokeLinecap="round" />
+        <polygon points={`${ex},${ey} ${h1x},${h1y} ${h2x},${h2y}`} fill="#374151" />
+        <text x={w / 2} y={h - 4} fontSize={11} fill="#374151" textAnchor="middle" fontWeight="500">{label}</text>
       </g>
     )
   }
