@@ -234,6 +234,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           chamberData: chamber,
         },
       })
+
+      // 创建观察方向箭头（画布上，导出时可见）
+      editor.createShape({
+        id: createShapeId('direction-arrow'),
+        type: 'direction-arrow',
+        x: 650,
+        y: 500,
+        props: { w: 120, h: 60, label: '观察方向' },
+      })
+
       set({ chamberShapeId: chamberId })
     }
   },
@@ -574,9 +584,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         y: 100,
         props: { w: 800, h: 600, chamberData: data.chamber },
       })
-      set({ chamberShapeId: chamberId })
 
-      // Rebuild point shapes as child shapes of chamber
+      // 创建观察方向箭头
+      editor.createShape({
+        id: createShapeId('direction-arrow'),
+        type: 'direction-arrow',
+        x: 650,
+        y: 500,
+        props: { w: 120, h: 60, label: '观察方向' },
+      })
+
+      set({ chamberShapeId: chamberId })
       data.points.forEach((point, index) => {
         createPointShape(editor, point, index)
       })
@@ -642,6 +660,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           chamberData: template.chamber,
         },
       })
+
+      // 创建观察方向箭头
+      editor.createShape({
+        id: createShapeId('direction-arrow'),
+        type: 'direction-arrow',
+        x: 650,
+        y: 500,
+        props: { w: 120, h: 60, label: '观察方向' },
+      })
+
       set({ chamberShapeId: chamberId })
     }
   },

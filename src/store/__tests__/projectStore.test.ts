@@ -362,8 +362,8 @@ describe('projectStore', () => {
       useProjectStore.getState().loadProject(projectData)
 
       expect(editor.deleteShapes).toHaveBeenCalled()
-      // 1 chamber + 1 point
-      expect(editor.createShape).toHaveBeenCalledTimes(2)
+      // 1 chamber + 1 point + 1 direction arrow
+      expect(editor.createShape).toHaveBeenCalledTimes(3)
       // Verify point shape is a child of chamber
       const pointCall = (editor.createShape as any).mock.calls.find(
         (call: any) => call[0].type === 'probe-point',
@@ -388,8 +388,8 @@ describe('projectStore', () => {
 
       useProjectStore.getState().loadProject(projectData)
 
-      // 1 chamber + 1 point + 1 drain-port + 1 description = 4
-      expect(editor.createShape).toHaveBeenCalledTimes(4)
+      // 1 chamber + 1 point + 1 drain-port + 1 description + 1 direction arrow = 5
+      expect(editor.createShape).toHaveBeenCalledTimes(5)
     })
   })
 

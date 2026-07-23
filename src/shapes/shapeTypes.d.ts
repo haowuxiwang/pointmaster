@@ -21,5 +21,6 @@ declare module '@tldraw/tlschema' {
     'drain-port': { w: number; h: number; label: string; pointData: ProbePointData }
     'built-in-probe': { w: number; h: number; label: string; pointData: ProbePointData }
     'inlet-port': { w: number; h: number; label: string; pointData: ProbePointData }
+    'direction-arrow': { w: number; h: number; label: string }
   }
 }

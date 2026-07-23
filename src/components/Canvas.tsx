@@ -9,6 +9,7 @@ import { LegendShapeUtil } from '@/shapes/LegendShape'
 import { DrainPortShapeUtil } from '@/shapes/DrainPortShape'
 import { BuiltInProbeShapeUtil } from '@/shapes/BuiltInProbeShape'
 import { InletPortShapeUtil } from '@/shapes/InletPortShape'
+import { DirectionArrowShapeUtil } from '@/shapes/DirectionArrowShape'
 import { ProbePointTool } from '@/tools/ProbePointTool'
 import { DrainPortTool } from '@/tools/DrainPortTool'
 import { BuiltInProbeTool } from '@/tools/BuiltInProbeTool'
@@ -78,6 +79,7 @@ const shapeUtils = [
   DrainPortShapeUtil,
   BuiltInProbeShapeUtil,
   InletPortShapeUtil,
+  DirectionArrowShapeUtil,
 ]
 const tools = [ProbePointTool, DrainPortTool, BuiltInProbeTool, InletPortTool]
 
