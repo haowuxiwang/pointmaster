@@ -11,7 +11,6 @@ import TemplatePanel from './panels/TemplatePanel'
 import AutoPlacePanel from './panels/AutoPlacePanel'
 import ChamberPropertiesPanel from './panels/ChamberPropertiesPanel'
 import ToastContainer, { showToast } from './Toast'
-import ViewControls from './ViewControls'
 import StatusBar from './StatusBar'
 import { exportToSVG, type ExportMetadata } from '@/core/export/svgExport'
 import { exportToPNG } from '@/core/export/pngExport'
@@ -347,7 +346,6 @@ export default function Layout() {
         <div className="flex-1 relative overflow-hidden">
           <Canvas />
           <ZSlider />
-          <ViewControls />
         </div>
 
         {/* Right panel */}
@@ -583,37 +581,15 @@ function TabButton({
 }
 
 function ViewDirectionIndicator() {
-  const viewMode = useProjectStore((s) => s.viewMode)
-  const setViewMode = useProjectStore((s) => s.setViewMode)
-
-  const arrows: Record<string, { path: string; label: string }> = {
-    isometric: {
-      path: 'M 10 28 L 10 8 L 6 12 M 10 8 L 14 12',
-      label: '等轴测',
-    },
-    front: {
-      path: 'M 10 6 L 10 24 L 6 20 M 10 24 L 14 20',
-      label: '前视',
-    },
-  }
-
-  const cycle = () => {
-    const modes: Array<'isometric' | 'front'> = ['isometric', 'front']
-    const idx = modes.indexOf(viewMode)
-    setViewMode(modes[(idx + 1) % modes.length])
-  }
-
-  const current = arrows[viewMode] ?? arrows.isometric
-
   return (
-    <button
-      onClick={cycle}
-      className="flex flex-col items-center gap-0.5 cursor-pointer hover:bg-gray-200 rounded px-1 py-0.5"
-      title={`当前视角: ${current.label}（点击切换）`}
+    <div
+      className="flex flex-col items-center gap-0.5"
+      title="观察方向: 从右前方俯视等轴测视角"
     >
-      <svg width="20" height="28" viewBox="0 0 20 28" className="text-gray-500">
+      <svg width="20" height="28" viewBox="0 0 20 28" className="text-gray-400">
+        {/* Isometric arrow pointing top-right */}
         <path
-          d={current.path}
+          d="M 10 28 L 10 8 L 6 12 M 10 8 L 14 12"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
@@ -621,8 +597,8 @@ function ViewDirectionIndicator() {
           strokeLinejoin="round"
         />
       </svg>
-      <span className="text-[9px] text-gray-400 leading-none">{current.label}</span>
-    </button>
+      <span className="text-[9px] text-gray-400 leading-none">观察方向</span>
+    </div>
   )
 }
 
