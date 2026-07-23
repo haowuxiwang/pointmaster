@@ -586,18 +586,19 @@ function ViewDirectionIndicator() {
       className="flex flex-col items-center gap-1"
       title="观察方向: 从右前方俯视等轴测视角"
     >
-      <svg width="28" height="36" viewBox="0 0 20 28" className="text-gray-600">
-        {/* Isometric arrow pointing top-right */}
-        <path
-          d="M 10 28 L 10 8 L 6 12 M 10 8 L 14 12"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <span className="text-[10px] text-gray-600 font-medium leading-none">观察方向</span>
+      <div
+        style={{
+          width: 0,
+          height: 0,
+          borderLeft: '8px solid transparent',
+          borderRight: '8px solid transparent',
+          borderBottom: '16px solid #4b5563',
+          transform: 'rotate(-45deg)',
+        }}
+      />
+      <span style={{ fontSize: '10px', color: '#4b5563', fontWeight: 500, lineHeight: 1 }}>
+        观察方向
+      </span>
     </div>
   )
 }
