@@ -1,13 +1,19 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Rectangle2d } from 'tldraw'
 
-interface LegendEntry { label: string; description: string }
+interface LegendEntry {
+  label: string
+  description: string
+}
 
-type LegendShape = TLBaseShape<'legend', {
-  w: number
-  h: number
-  title: string
-  entries: LegendEntry[]
-}>
+type LegendShape = TLBaseShape<
+  'legend',
+  {
+    w: number
+    h: number
+    title: string
+    entries: LegendEntry[]
+  }
+>
 
 // Track editing values across renders (keyed by composite keys)
 const editingValues = new Map<string, string>()
@@ -168,7 +174,10 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
                       boxSizing: 'border-box',
                     }}
                     onInput={(e) => {
-                      editingValues.set(`${shape.id}:entry-${i}-label`, (e.target as HTMLInputElement).value)
+                      editingValues.set(
+                        `${shape.id}:entry-${i}-label`,
+                        (e.target as HTMLInputElement).value,
+                      )
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -198,7 +207,10 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
                       boxSizing: 'border-box',
                     }}
                     onInput={(e) => {
-                      editingValues.set(`${shape.id}:entry-${i}-desc`, (e.target as HTMLInputElement).value)
+                      editingValues.set(
+                        `${shape.id}:entry-${i}-desc`,
+                        (e.target as HTMLInputElement).value,
+                      )
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -224,31 +236,12 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
 
     return (
       <SVGContainer>
-        <rect
-          x={0} y={0}
-          width={w} height={h}
-          fill="white"
-          stroke="#ccc"
-          strokeWidth={1}
-          rx={4}
-        />
-        <text
-          x={padding}
-          y={padding + 12}
-          fontSize={13}
-          fontWeight="bold"
-          fill="#333"
-        >
+        <rect x={0} y={0} width={w} height={h} fill="white" stroke="#ccc" strokeWidth={1} rx={4} />
+        <text x={padding} y={padding + 12} fontSize={13} fontWeight="bold" fill="#333">
           {title}
         </text>
         {entries.map((entry, i) => (
-          <text
-            key={i}
-            x={padding}
-            y={padding + 32 + i * lineHeight}
-            fontSize={11}
-            fill="#555"
-          >
+          <text key={i} x={padding} y={padding + 32 + i * lineHeight} fontSize={11} fill="#555">
             {entry.label} - {entry.description}
           </text>
         ))}
@@ -262,8 +255,19 @@ export class LegendShapeUtil extends ShapeUtil<LegendShape> {
     const lineHeight = 20
     return (
       <g>
-        <rect x={0} y={0} width={w} height={shape.props.h} fill="white" stroke="#ccc" strokeWidth={1} rx={4} />
-        <text x={padding} y={padding + 12} fontSize={13} fontWeight="bold" fill="#333">{title}</text>
+        <rect
+          x={0}
+          y={0}
+          width={w}
+          height={shape.props.h}
+          fill="white"
+          stroke="#ccc"
+          strokeWidth={1}
+          rx={4}
+        />
+        <text x={padding} y={padding + 12} fontSize={13} fontWeight="bold" fill="#333">
+          {title}
+        </text>
         {entries.map((entry, i) => (
           <text key={i} x={padding} y={padding + 32 + i * lineHeight} fontSize={11} fill="#555">
             {entry.label} - {entry.description}

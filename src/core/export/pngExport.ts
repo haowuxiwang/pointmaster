@@ -1,7 +1,11 @@
 import { type Editor, type TLShapeId } from 'tldraw'
 import type { ExportMetadata } from './svgExport'
 
-export async function exportToPNG(editor: Editor, scale: number = 2, metadata?: ExportMetadata): Promise<Blob> {
+export async function exportToPNG(
+  editor: Editor,
+  scale: number = 2,
+  metadata?: ExportMetadata,
+): Promise<Blob> {
   // Save and exit editing mode to avoid foreignObject issues in export
   const prevEditingId = editor.getEditingShapeId()
   editor.setEditingShape(null)
@@ -39,11 +43,19 @@ export async function exportToPNG(editor: Editor, scale: number = 2, metadata?: 
   } finally {
     // Clean up temporary shape (best-effort, don't mask original errors)
     if (tempShapeId) {
-      try { editor.deleteShapes([tempShapeId]) } catch { /* cleanup best-effort */ }
+      try {
+        editor.deleteShapes([tempShapeId])
+      } catch {
+        /* cleanup best-effort */
+      }
     }
     // Restore editing state
     if (prevEditingId) {
-      try { editor.setEditingShape(prevEditingId) } catch { /* best-effort */ }
+      try {
+        editor.setEditingShape(prevEditingId)
+      } catch {
+        /* best-effort */
+      }
     }
   }
 }

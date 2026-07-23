@@ -8,7 +8,11 @@ export interface ExportMetadata {
 }
 
 function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 export async function exportToSVG(editor: Editor, metadata?: ExportMetadata): Promise<string> {
@@ -40,16 +44,17 @@ export async function exportToSVG(editor: Editor, metadata?: ExportMetadata): Pr
       `</g>`,
     ]
 
-    const svgWithMeta = result.svg.replace(
-      /(<svg[\s\S]*?>)/,
-      `$1\n${headerLines.join('\n')}`
-    )
+    const svgWithMeta = result.svg.replace(/(<svg[\s\S]*?>)/, `$1\n${headerLines.join('\n')}`)
 
     return svgWithMeta
   } finally {
     // Restore editing state
     if (prevEditingId) {
-      try { editor.setEditingShape(prevEditingId) } catch { /* best-effort */ }
+      try {
+        editor.setEditingShape(prevEditingId)
+      } catch {
+        /* best-effort */
+      }
     }
   }
 }

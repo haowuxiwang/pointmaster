@@ -19,9 +19,7 @@ vi.mock('@/store/projectStore', () => ({
 
 describe('pagePointToChamber3D', () => {
   const mockEditor = (chamberX = 100, chamberY = 100) => ({
-    getCurrentPageShapes: () => [
-      { type: 'chamber', x: chamberX, y: chamberY },
-    ],
+    getCurrentPageShapes: () => [{ type: 'chamber', x: chamberX, y: chamberY }],
   })
 
   it('round-trips a known 3D point correctly', () => {

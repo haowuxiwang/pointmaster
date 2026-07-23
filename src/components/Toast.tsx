@@ -33,7 +33,9 @@ export default function ToastContainer() {
       const timer = setTimeout(() => remove(id), 3000)
       timers.current.set(id, timer)
     }
-    return () => { addToastFn = null }
+    return () => {
+      addToastFn = null
+    }
   }, [remove])
 
   if (toasts.length === 0) return null
@@ -44,7 +46,11 @@ export default function ToastContainer() {
         <div
           key={t.id}
           className={`px-4 py-2 rounded shadow-lg text-sm text-white animate-fade-in ${
-            t.type === 'success' ? 'bg-green-600' : t.type === 'error' ? 'bg-red-600' : 'bg-gray-700'
+            t.type === 'success'
+              ? 'bg-green-600'
+              : t.type === 'error'
+                ? 'bg-red-600'
+                : 'bg-gray-700'
           }`}
           onClick={() => remove(t.id)}
         >

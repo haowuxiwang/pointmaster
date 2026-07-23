@@ -18,12 +18,17 @@ import { POINT_SHAPE_TYPES } from '@/types'
 import type { Editor } from 'tldraw'
 
 /** Debug helper: log current tldraw shapes to console */
-declare global { interface Window { __pm_debug?: () => void } }
+declare global {
+  interface Window {
+    __pm_debug?: () => void
+  }
+}
+
 function installDebug(editor: Editor) {
   window.__pm_debug = () => {
     const shapes = editor.getCurrentPageShapes()
-    const chamber = shapes.find(s => s.type === 'chamber')
-    const points = shapes.filter(s => s.type === 'probe-point')
+    const chamber = shapes.find((s) => s.type === 'chamber')
+    const points = shapes.filter((s) => s.type === 'probe-point')
     const { viewMode } = useProjectStore.getState()
 
     console.log('[PM_DEBUG] viewMode:', viewMode)
@@ -31,7 +36,9 @@ function installDebug(editor: Editor) {
     console.log('[PM_DEBUG] point count:', points.length)
     points.slice(0, 3).forEach((p, i) => {
       const pd = p.props?.pointData
-      console.log(`[PM_DEBUG] point[${i}] ${pd.label}: stored=(${p.x.toFixed(1)}, ${p.y.toFixed(1)}), pos3d=(${pd.position.x}, ${pd.position.y}, ${pd.position.z})`)
+      console.log(
+        `[PM_DEBUG] point[${i}] ${pd.label}: stored=(${p.x.toFixed(1)}, ${p.y.toFixed(1)}), pos3d=(${pd.position.x}, ${pd.position.y}, ${pd.position.z})`,
+      )
     })
 
     // Rendered positions (from DOM)
@@ -40,18 +47,38 @@ function installDebug(editor: Editor) {
       const pointEls = document.querySelectorAll('[data-shape-type="probe-point"]')
       if (chamberEl) {
         const r = chamberEl.getBoundingClientRect()
-        console.log('[PM_DEBUG] RENDERED chamber bbox:', JSON.stringify({ left: Math.round(r.left), top: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }))
+        console.log(
+          '[PM_DEBUG] RENDERED chamber bbox:',
+          JSON.stringify({
+            left: Math.round(r.left),
+            top: Math.round(r.top),
+            w: Math.round(r.width),
+            h: Math.round(r.height),
+          }),
+        )
       }
       pointEls.forEach((el, i) => {
         if (i >= 3) return
         const r = el.getBoundingClientRect()
-        console.log(`[PM_DEBUG] RENDERED point[${i}]:`, JSON.stringify({ left: Math.round(r.left), top: Math.round(r.top) }))
+        console.log(
+          `[PM_DEBUG] RENDERED point[${i}]:`,
+          JSON.stringify({ left: Math.round(r.left), top: Math.round(r.top) }),
+        )
       })
     }, 100)
   }
 }
 
-const shapeUtils = [ChamberShapeUtil, ProbePointShapeUtil, TextAnnotationShapeUtil, DimensionShapeUtil, LegendShapeUtil, DrainPortShapeUtil, BuiltInProbeShapeUtil, InletPortShapeUtil]
+const shapeUtils = [
+  ChamberShapeUtil,
+  ProbePointShapeUtil,
+  TextAnnotationShapeUtil,
+  DimensionShapeUtil,
+  LegendShapeUtil,
+  DrainPortShapeUtil,
+  BuiltInProbeShapeUtil,
+  InletPortShapeUtil,
+]
 const tools = [ProbePointTool, DrainPortTool, BuiltInProbeTool, InletPortTool]
 
 function EditorSync() {
@@ -71,8 +98,10 @@ function EditorSync() {
       chamberPosRef.current = { x: initChamber.x, y: initChamber.y }
     }
 
-    // Install debug helper
-    installDebug(editor)
+    // Install debug helper (dev only)
+    if (import.meta.env.DEV) {
+      installDebug(editor)
+    }
 
     // Listen for shape changes to sync added/removed/updated shapes
     const unsubscribe = editor.store.listen((entry) => {
@@ -119,8 +148,10 @@ function EditorSync() {
         const shape = to as any
         const prevShape = from as any
 
-        // Handle chamber changes — update cached position and sync name
+        // Handle chamber changes — update cached position, sync name, and move probe points
         if (shape.type === 'chamber') {
+          const dx = shape.x - chamberPosRef.current.x
+          const dy = shape.y - chamberPosRef.current.y
           chamberPosRef.current = { x: shape.x, y: shape.y }
           const store = useProjectStore.getState()
           const newName = shape.props?.chamberData?.name
@@ -129,7 +160,21 @@ function EditorSync() {
           }
           // Update chamber page position in store
           useProjectStore.setState({ chamberPageX: shape.x, chamberPageY: shape.y })
-          // Child point shapes follow automatically in tldraw v5
+          // Move all independent probe/port shapes by the same delta
+          if (dx !== 0 || dy !== 0) {
+            const allShapes = editor.getCurrentPageShapes()
+            const pointShapes = allShapes.filter(
+              (s) => POINT_SHAPE_TYPES.has(s.type) && s.type !== 'chamber',
+            )
+            editor.updateShapes(
+              pointShapes.map((s) => ({
+                id: s.id,
+                type: s.type as any,
+                x: s.x + dx,
+                y: s.y + dy,
+              })),
+            )
+          }
           continue
         }
 
@@ -144,9 +189,7 @@ function EditorSync() {
         const oldPoint = store.points.find((p) => p.label === oldLabel)
         if (oldPoint && oldLabel !== newLabel) {
           useProjectStore.setState({
-            points: store.points.map((p) =>
-              p.label === oldLabel ? { ...p, label: newLabel } : p
-            ),
+            points: store.points.map((p) => (p.label === oldLabel ? { ...p, label: newLabel } : p)),
           })
         }
       }

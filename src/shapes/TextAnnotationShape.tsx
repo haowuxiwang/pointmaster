@@ -1,13 +1,15 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Rectangle2d } from 'tldraw'
 
-type TextAnnotationShape = TLBaseShape<'text-annotation', {
-  w: number
-  h: number
-  content: string
-  fontSize: number
-}>
+type TextAnnotationShape = TLBaseShape<
+  'text-annotation',
+  {
+    w: number
+    h: number
+    content: string
+    fontSize: number
+  }
+>
 
-// Track editing values across renders (keyed by shape ID)
 const editingValues = new Map<string, string>()
 
 export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
@@ -51,36 +53,48 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
   }
 
   component(shape: TextAnnotationShape) {
-    const { content, fontSize, w, h } = shape.props
-    const isEditing = this.editor.getEditingShapeId() === shape.id
+    const { content, fontSize, w } = shape.props
     const lines = content.split('\n')
-    // Auto-size: compute height based on line count
-    const autoHeight = Math.max(h, lines.length * fontSize * 1.4 + 12)
+    const isEditing = this.editor.getEditingShapeId() === shape.id
 
     if (isEditing) {
+      const textareaHeight = Math.max(lines.length * fontSize * 1.4 + 16, 60)
       return (
         <SVGContainer>
-          <foreignObject x={0} y={0} width={w} height={autoHeight}>
+          <foreignObject
+            x={0}
+            y={0}
+            width={Math.max(w, 300)}
+            height={textareaHeight}
+            style={{ pointerEvents: 'all' }}
+          >
             <textarea
               autoFocus
               defaultValue={content}
               style={{
                 width: '100%',
-                height: '100%',
+                minHeight: '100%',
                 fontSize: `${fontSize}px`,
+                fontFamily: 'sans-serif',
                 color: '#333',
-                border: '1px solid #00bcd4',
+                border: '1px solid #1976d2',
                 borderRadius: '2px',
                 padding: '4px 6px',
                 outline: 'none',
                 background: 'white',
-                boxSizing: 'border-box',
-                resize: 'vertical',
-                fontFamily: 'inherit',
+                resize: 'none',
                 lineHeight: '1.4',
+                overflow: 'hidden',
+                pointerEvents: 'auto',
               }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onPointerMove={(e) => e.stopPropagation()}
               onInput={(e) => {
-                editingValues.set(shape.id, (e.target as HTMLInputElement).value)
+                editingValues.set(shape.id, (e.target as HTMLTextAreaElement).value)
+                const ta = e.target as HTMLTextAreaElement
+                ta.style.height = 'auto'
+                ta.style.height = ta.scrollHeight + 'px'
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
@@ -99,13 +113,7 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
     return (
       <SVGContainer>
         {lines.map((line, i) => (
-          <text
-            key={i}
-            x={0}
-            y={fontSize * 1.4 * (i + 1)}
-            fontSize={fontSize}
-            fill="#333"
-          >
+          <text key={i} x={0} y={fontSize * 1.4 * (i + 1)} fontSize={fontSize} fill="#333">
             {line}
           </text>
         ))}
@@ -119,7 +127,9 @@ export class TextAnnotationShapeUtil extends ShapeUtil<TextAnnotationShape> {
     return (
       <g>
         {lines.map((line, i) => (
-          <text key={i} x={0} y={fontSize * (i + 1)} fontSize={fontSize} fill="#333">{line}</text>
+          <text key={i} x={0} y={fontSize * (i + 1)} fontSize={fontSize} fill="#333">
+            {line}
+          </text>
         ))}
       </g>
     )

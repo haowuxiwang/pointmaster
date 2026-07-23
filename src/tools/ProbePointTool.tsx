@@ -30,9 +30,7 @@ class Pointing extends StateNode {
     const point = editor.inputs.getCurrentPagePoint()
 
     // Find max existing label number to avoid duplicates
-    const existing = editor
-      .getCurrentPageShapes()
-      .filter((s) => s.type === 'probe-point')
+    const existing = editor.getCurrentPageShapes().filter((s) => s.type === 'probe-point')
     let maxNum = 0
     for (const shape of existing) {
       const match = shape.props.pointData?.label?.match(/^T(\d+)$/)

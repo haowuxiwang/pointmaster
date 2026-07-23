@@ -18,9 +18,7 @@ export default function ViewControls() {
           key={mode}
           onClick={() => setViewMode(mode)}
           className={`px-3 py-1 text-xs rounded text-left ${
-            viewMode === mode
-              ? 'bg-blue-500 text-white'
-              : 'text-gray-600 hover:bg-gray-100'
+            viewMode === mode ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           {viewLabels[mode]}

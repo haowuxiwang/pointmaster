@@ -1,12 +1,15 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Circle2d } from 'tldraw'
 import type { ProbePointData } from '@/types'
 
-type BuiltInProbeShape = TLBaseShape<'built-in-probe', {
-  w: number
-  h: number
-  label: string
-  pointData: ProbePointData
-}>
+type BuiltInProbeShape = TLBaseShape<
+  'built-in-probe',
+  {
+    w: number
+    h: number
+    label: string
+    pointData: ProbePointData
+  }
+>
 
 // Track editing values across renders (keyed by shape ID)
 const editingValues = new Map<string, string>()
@@ -127,7 +130,9 @@ export class BuiltInProbeShapeUtil extends ShapeUtil<BuiltInProbeShape> {
     return (
       <g>
         <polygon points={points} fill="none" stroke="#000" strokeWidth={1} />
-        <text x={0} y={-16} fontSize={10} fill="#000" textAnchor="middle">{label}</text>
+        <text x={0} y={-16} fontSize={10} fill="#000" textAnchor="middle">
+          {label}
+        </text>
       </g>
     )
   }

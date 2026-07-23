@@ -1,16 +1,14 @@
 import { useState } from 'react'
-import { createShapeId } from 'tldraw'
 import { useProjectStore } from '@/store/projectStore'
 
 export default function AutoPlacePanel() {
   const autoPlace = useProjectStore((s) => s.autoPlace)
-  const points = useProjectStore((s) => s.points)
-  const editor = useProjectStore((s) => s.editor)
   const [totalCount, setTotalCount] = useState(12)
   const [includeCenter, setIncludeCenter] = useState(true)
   const [includeDrainPorts, setIncludeDrainPorts] = useState(false)
   const [includeInletPorts, setIncludeInletPorts] = useState(false)
   const [includeBuiltInProbes, setIncludeBuiltInProbes] = useState(false)
+  const [keepDescription, setKeepDescription] = useState(false)
 
   const getMandatoryCount = () => {
     let count = 8 // 8 corners
@@ -18,27 +16,8 @@ export default function AutoPlacePanel() {
     return count
   }
 
-  /** Check if the placement description has been manually edited by the user */
-  const isDescriptionEdited = (): boolean => {
-    if (!editor) return false
-    const desc = editor.getCurrentPageShapes().find(s => s.id === createShapeId('placement-desc'))
-    if (!desc) return false
-    const content = (desc.props as any).content as string
-    // If description exists and is non-empty, consider it potentially edited
-    return content.length > 0
-  }
-
   const handlePlace = () => {
-    let msg = ''
-    if (points.length > 0) {
-      msg = `当前有 ${points.length} 个布点，将重新生成 ${totalCount} 个点位。`
-    }
-    if (isDescriptionEdited()) {
-      msg += '布点描述将被重新生成，手动编辑的内容会丢失。'
-    }
-    if (msg && !confirm(msg + '\n\n继续？')) {
-      return
-    }
+    useProjectStore.getState().setPlacementKeepDescription(keepDescription)
 
     autoPlace({
       mode: 'uniform',
@@ -68,7 +47,9 @@ export default function AutoPlacePanel() {
           }}
           className="w-full border rounded px-2 py-1 text-sm"
         />
-        <p className="text-xs text-gray-400">包含角点和中心点，端口位置额外放置探头（不消耗总数）</p>
+        <p className="text-xs text-gray-400">
+          包含角点和中心点，端口位置额外放置探头（不消耗总数）
+        </p>
       </div>
 
       {/* Options */}
@@ -109,6 +90,15 @@ export default function AutoPlacePanel() {
           />
           在自带探头附近放置探头
         </label>
+        <label className="flex items-center gap-2 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={keepDescription}
+            onChange={(e) => setKeepDescription(e.target.checked)}
+            className="rounded"
+          />
+          保留已有说明
+        </label>
       </div>
 
       {/* Estimated count */}
@@ -137,6 +127,7 @@ export default function AutoPlacePanel() {
           <li>勾选的端口位置会放置探头（与端口精确重合，可拖走调整）</li>
           <li>布点后可拖动调整位置</li>
           <li>双击标签可编辑名称</li>
+          <li>双击说明文字可直接编辑内容</li>
         </ul>
       </div>
     </div>

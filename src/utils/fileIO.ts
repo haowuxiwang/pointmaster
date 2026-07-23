@@ -18,7 +18,8 @@ function validateProjectData(data: unknown): data is ProjectData {
   // Chamber structure check
   if (typeof d.chamber !== 'object' || d.chamber === null) return false
   const chamber = d.chamber as Record<string, unknown>
-  if (chamber.type !== 'cuboid' && chamber.type !== 'cylinder' && chamber.type !== 'polygon') return false
+  if (chamber.type !== 'cuboid' && chamber.type !== 'cylinder' && chamber.type !== 'polygon')
+    return false
   if (typeof chamber.dimensions !== 'object' || chamber.dimensions === null) return false
   const dims = chamber.dimensions as Record<string, unknown>
   if (typeof dims.width !== 'number' || dims.width <= 0) return false
@@ -33,7 +34,8 @@ function validateProjectData(data: unknown): data is ProjectData {
     if (typeof point.label !== 'string') return false
     if (typeof point.position !== 'object' || point.position === null) return false
     const pos = point.position as Record<string, unknown>
-    if (typeof pos.x !== 'number' || typeof pos.y !== 'number' || typeof pos.z !== 'number') return false
+    if (typeof pos.x !== 'number' || typeof pos.y !== 'number' || typeof pos.z !== 'number')
+      return false
   }
 
   // Date checks

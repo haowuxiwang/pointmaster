@@ -108,4 +108,37 @@ describe('saveProjectToFile', () => {
     const recent = getRecentProjects()
     expect(recent).toHaveLength(1)
   })
+
+  it('keeps newer version when deduplicating', () => {
+    const mockAnchor = { href: '', download: '', click: vi.fn() }
+    vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor as any)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    const older = { ...testProject, updatedAt: '2026-01-01T00:00:00Z' }
+    const newer = { ...testProject, updatedAt: '2026-06-01T00:00:00Z' }
+
+    saveProjectToFile(older)
+    saveProjectToFile(newer)
+
+    const recent = getRecentProjects()
+    expect(recent).toHaveLength(1)
+    expect(recent[0].updatedAt).toBe('2026-06-01T00:00:00Z')
+  })
+
+  it('serializes project to JSON correctly', () => {
+    const mockAnchor = { href: '', download: '', click: vi.fn() }
+    vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor as any)
+
+    let capturedBlob: Blob | null = null
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob: Blob | MediaSource) => {
+      capturedBlob = blob as Blob
+      return 'blob:mock-url'
+    })
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    saveProjectToFile(testProject)
+
+    expect(capturedBlob).not.toBeNull()
+  })
 })

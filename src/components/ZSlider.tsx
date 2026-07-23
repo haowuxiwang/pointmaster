@@ -12,10 +12,13 @@ export default function ZSlider() {
   const layers = chamber.dimensions.layers ?? 1
 
   // Each layer center matches uniformPlacement's Z calculation: height * (layer + 0.5) / layers
-  const layerCenters = Array.from({ length: layers }, (_, l) => Math.round(maxHeight * (l + 0.5) / layers))
-  const closestLayer = layerCenters.reduce((prev, curr) =>
-    Math.abs(curr - currentZLevel) < Math.abs(prev - currentZLevel) ? curr : prev
-  , layerCenters[0])
+  const layerCenters = Array.from({ length: layers }, (_, l) =>
+    Math.round((maxHeight * (l + 0.5)) / layers),
+  )
+  const closestLayer = layerCenters.reduce(
+    (prev, curr) => (Math.abs(curr - currentZLevel) < Math.abs(prev - currentZLevel) ? curr : prev),
+    layerCenters[0],
+  )
   const currentLayer = layerCenters.indexOf(closestLayer) + 1
 
   // Subscribe to selection + shape changes for stable sync
@@ -23,9 +26,15 @@ export default function ZSlider() {
 
   useEffect(() => {
     if (!editor) return
-    const unsub = editor.store.listen(() => {
-      const ids = editor.getSelectedShapeIds()
-      setSelectedId(ids.length === 1 ? ids[0] : null)
+    const unsub = editor.store.listen((entry) => {
+      // Only react to selection changes, not all store mutations
+      const changes = entry.changes
+      if (!changes) return
+      const updatedKeys = changes.updated ? Object.keys(changes.updated) : []
+      if (updatedKeys.some((k) => k.includes('selectedShapeIds'))) {
+        const ids = editor.getSelectedShapeIds()
+        setSelectedId(ids.length === 1 ? ids[0] : null)
+      }
     })
     return unsub
   }, [editor])
@@ -59,7 +68,12 @@ export default function ZSlider() {
 
   return (
     <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-white rounded-lg shadow-md p-2 z-10">
-      <span className="text-xs text-gray-500 mb-1" title="控制点位放置的高度（mm），选中点位后可拖动调整Z坐标">高度层</span>
+      <span
+        className="text-xs text-gray-500 mb-1"
+        title="控制点位放置的高度（mm），选中点位后可拖动调整Z坐标"
+      >
+        高度层
+      </span>
       <input
         type="range"
         min={0}

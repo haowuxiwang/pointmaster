@@ -1,12 +1,15 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Circle2d } from 'tldraw'
 import type { ProbePointData } from '@/types'
 
-type InletPortShape = TLBaseShape<'inlet-port', {
-  w: number
-  h: number
-  label: string
-  pointData: ProbePointData
-}>
+type InletPortShape = TLBaseShape<
+  'inlet-port',
+  {
+    w: number
+    h: number
+    label: string
+    pointData: ProbePointData
+  }
+>
 
 // Track editing values across renders (keyed by shape ID)
 const editingValues = new Map<string, string>()
@@ -139,7 +142,9 @@ export class InletPortShapeUtil extends ShapeUtil<InletPortShape> {
         <polygon points="4,-3 4,3 1,0" fill="#000" />
         <polygon points="-3,-4 3,-4 0,-1" fill="#000" />
         <polygon points="-3,4 3,4 0,1" fill="#000" />
-        <text x={0} y={-18} fontSize={10} fill="#000" textAnchor="middle">{label}</text>
+        <text x={0} y={-18} fontSize={10} fill="#000" textAnchor="middle">
+          {label}
+        </text>
       </g>
     )
   }

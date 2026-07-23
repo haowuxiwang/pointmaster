@@ -16,7 +16,8 @@ export default function TemplatePanel() {
           >
             <div className="font-medium">{t.name}</div>
             <div className="text-xs text-gray-400">
-              {t.chamber.dimensions.width}&times;{t.chamber.dimensions.depth}&times;{t.chamber.dimensions.height}mm
+              {t.chamber.dimensions.width}&times;{t.chamber.dimensions.depth}&times;
+              {t.chamber.dimensions.height}mm
               {t.chamber.dimensions.layers && t.chamber.dimensions.layers > 1 && (
                 <span className="ml-1">· {t.chamber.dimensions.layers}层</span>
               )}

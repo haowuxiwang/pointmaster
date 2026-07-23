@@ -14,14 +14,14 @@ vi.mock('@/core/placement', () => ({
       label: `T${i + 1}`,
       position: { x: 100, y: 100, z: 100 },
       properties: {},
-    }))
+    })),
   ),
   uniformPlacement: vi.fn((_chamber: any, count: number) =>
     Array.from({ length: count }, (_, i) => ({
       label: `T${i + 1}`,
       position: { x: 100, y: 100, z: 100 },
       properties: {},
-    }))
+    })),
   ),
   keypointsPlacement: vi.fn(() => [
     { label: 'K1', position: { x: 0, y: 0, z: 0 }, properties: {} },
@@ -35,8 +35,14 @@ vi.mock('@/core/projection/isometric', () => ({
   project3Dto2D: vi.fn((x: number, y: number, z: number) => ({ x: x * 0.2, y: y * 0.2 - z * 0.2 })),
   CHAMBER_SCALE: 0.2,
   projections: {
-    isometric: { project: vi.fn((x: number, y: number, z: number) => ({ x: x * 0.2, y: y * 0.2 - z * 0.2 })), cameraDir: { x: 1, y: 1, z: 1 } },
-    front: { project: vi.fn((x: number, _y: number, z: number) => ({ x: x * 0.2, y: -z * 0.2 })), cameraDir: { x: 0, y: -1, z: 0 } },
+    isometric: {
+      project: vi.fn((x: number, y: number, z: number) => ({ x: x * 0.2, y: y * 0.2 - z * 0.2 })),
+      cameraDir: { x: 1, y: 1, z: 1 },
+    },
+    front: {
+      project: vi.fn((x: number, _y: number, z: number) => ({ x: x * 0.2, y: -z * 0.2 })),
+      cameraDir: { x: 0, y: -1, z: 0 },
+    },
   },
 }))
 
@@ -152,7 +158,7 @@ describe('projectStore', () => {
           props: expect.objectContaining({
             chamberData: testChamber,
           }),
-        })
+        }),
       )
       expect(useProjectStore.getState().chamberShapeId).toBeTruthy()
     })
@@ -174,7 +180,11 @@ describe('projectStore', () => {
     })
 
     it('removePoint deletes canvas shape when editor is set', () => {
-      const mockShape = { id: 'shape:probe-0', type: 'probe-point', props: { pointData: testPoint } }
+      const mockShape = {
+        id: 'shape:probe-0',
+        type: 'probe-point',
+        props: { pointData: testPoint },
+      }
       const editor = mockEditor()
       editor.getCurrentPageShapes = vi.fn(() => [mockShape]) as any
       useProjectStore.setState({ editor: editor as any })
@@ -221,7 +231,7 @@ describe('projectStore', () => {
       expect(useProjectStore.getState().points).toHaveLength(15)
     })
 
-    it('creates point shapes on canvas with parentId', () => {
+    it('creates point shapes on canvas', () => {
       const editor = mockEditor()
       useProjectStore.setState({ editor: editor as any, chamberShapeId: 'shape:chamber' as any })
 
@@ -229,20 +239,21 @@ describe('projectStore', () => {
 
       expect(editor.deleteShapes).toHaveBeenCalled()
       expect(editor.createShape).toHaveBeenCalledTimes(11) // 10 probes + 1 description
-      // Verify probe shapes have parentId
+      // Verify probe shapes are independent (no parentId)
       const probeCalls = (editor.createShape as any).mock.calls.filter(
-        (call: any) => call[0].type === 'probe-point'
+        (call: any) => call[0].type === 'probe-point',
       )
       expect(probeCalls).toHaveLength(10)
-      // Points are independent shapes at page coordinates (no parentId)
-      expect(probeCalls[0][0].parentId).toBe('shape:chamber')
+      expect(probeCalls[0][0].parentId).toBeUndefined()
     })
 
     it('does not delete device component shapes during placement', () => {
       const deviceShape = {
         id: 'shape:drain-0',
         type: 'drain-port',
-        props: { pointData: { label: '排水口', position: { x: 100, y: 100, z: 0 }, properties: {} } },
+        props: {
+          pointData: { label: '排水口', position: { x: 100, y: 100, z: 0 }, properties: {} },
+        },
       }
       const probeShape = {
         id: 'shape:probe-0',
@@ -269,7 +280,9 @@ describe('projectStore', () => {
       editor.getCurrentPageShapes = vi.fn(() => [builtInProbe]) as any
       useProjectStore.setState({ editor: editor as any, chamberShapeId: 'shape:chamber' as any })
 
-      useProjectStore.getState().autoPlace({ mode: 'uniform', totalCount: 10, includeBuiltInProbes: true })
+      useProjectStore
+        .getState()
+        .autoPlace({ mode: 'uniform', totalCount: 10, includeBuiltInProbes: true })
 
       // uniformPlacement mock returns 10 points regardless, but extraFixedPoints should be passed
       expect(useProjectStore.getState().points).toHaveLength(10)
@@ -353,9 +366,9 @@ describe('projectStore', () => {
       expect(editor.createShape).toHaveBeenCalledTimes(2)
       // Verify point shape is a child of chamber
       const pointCall = (editor.createShape as any).mock.calls.find(
-        (call: any) => call[0].type === 'probe-point'
+        (call: any) => call[0].type === 'probe-point',
       )
-      expect(pointCall[0].parentId).toBe('shape:chamber')
+      expect(pointCall[0].parentId).toBeUndefined()
     })
 
     it('restores drain ports and description from project data', () => {
@@ -418,7 +431,7 @@ describe('projectStore', () => {
           props: expect.objectContaining({
             chamberData: testChamber,
           }),
-        })
+        }),
       )
     })
   })

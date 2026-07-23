@@ -26,9 +26,7 @@ class Pointing extends StateNode {
     const point = editor.inputs.getCurrentPagePoint()
 
     // Find max existing label number
-    const existing = editor
-      .getCurrentPageShapes()
-      .filter((s) => s.type === 'drain-port')
+    const existing = editor.getCurrentPageShapes().filter((s) => s.type === 'drain-port')
     let maxNum = 0
     for (const shape of existing) {
       const match = shape.props.label?.match(/^排水口(\d*)$/)

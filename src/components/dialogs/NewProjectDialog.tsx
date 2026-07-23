@@ -50,7 +50,9 @@ export default function NewProjectDialog({ open, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h2 className="text-base font-semibold">新建项目</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+            &times;
+          </button>
         </div>
 
         {/* Tabs */}
@@ -82,9 +84,12 @@ export default function NewProjectDialog({ open, onClose }: Props) {
                   <div className="text-sm font-medium text-gray-800">{t.name}</div>
                   <div className="text-xs text-gray-400 mt-1">
                     {t.chamber.type === 'cylinder' ? '圆柱形' : '长方体'}{' '}
-                    {t.chamber.dimensions.width}&times;{t.chamber.dimensions.depth}&times;{t.chamber.dimensions.height}mm
+                    {t.chamber.dimensions.width}&times;{t.chamber.dimensions.depth}&times;
+                    {t.chamber.dimensions.height}mm
                   </div>
-                  <div className="text-xs text-gray-400 mt-0.5">默认 {t.defaultPointCount} 个点位</div>
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    默认 {t.defaultPointCount} 个点位
+                  </div>
                 </button>
               ))}
             </div>
@@ -113,15 +118,36 @@ export default function NewProjectDialog({ open, onClose }: Props) {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">宽度 (mm)</label>
-                  <input type="number" min={1} max={10000} value={width} onChange={(e) => setWidth(Math.max(1, Math.min(10000, +e.target.value || 1)))} className="w-full border rounded px-3 py-1.5 text-sm" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={10000}
+                    value={width}
+                    onChange={(e) => setWidth(Math.max(1, Math.min(10000, +e.target.value || 1)))}
+                    className="w-full border rounded px-3 py-1.5 text-sm"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">深度 (mm)</label>
-                  <input type="number" min={1} max={10000} value={depth} onChange={(e) => setDepth(Math.max(1, Math.min(10000, +e.target.value || 1)))} className="w-full border rounded px-3 py-1.5 text-sm" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={10000}
+                    value={depth}
+                    onChange={(e) => setDepth(Math.max(1, Math.min(10000, +e.target.value || 1)))}
+                    className="w-full border rounded px-3 py-1.5 text-sm"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">高度 (mm)</label>
-                  <input type="number" min={1} max={10000} value={height} onChange={(e) => setHeight(Math.max(1, Math.min(10000, +e.target.value || 1)))} className="w-full border rounded px-3 py-1.5 text-sm" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={10000}
+                    value={height}
+                    onChange={(e) => setHeight(Math.max(1, Math.min(10000, +e.target.value || 1)))}
+                    className="w-full border rounded px-3 py-1.5 text-sm"
+                  />
                 </div>
               </div>
               <div>
@@ -138,7 +164,21 @@ export default function NewProjectDialog({ open, onClose }: Props) {
               {shape === 'cylinder' && (
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">半径 (mm)</label>
-                  <input type="number" min={1} max={Math.floor(Math.min(width, depth) / 2)} value={radius} onChange={(e) => setRadius(Math.max(1, Math.min(Math.floor(Math.min(width, depth) / 2), +e.target.value || 1)))} className="w-full border rounded px-3 py-1.5 text-sm" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={Math.floor(Math.min(width, depth) / 2)}
+                    value={radius}
+                    onChange={(e) =>
+                      setRadius(
+                        Math.max(
+                          1,
+                          Math.min(Math.floor(Math.min(width, depth) / 2), +e.target.value || 1),
+                        ),
+                      )
+                    }
+                    className="w-full border rounded px-3 py-1.5 text-sm"
+                  />
                 </div>
               )}
               <button

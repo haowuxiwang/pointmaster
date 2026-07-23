@@ -51,10 +51,16 @@ const PointRow = memo(function PointRow({
           title="点击编辑坐标"
           onClick={() => onEditPosition(point.label)}
         >
-          ({Math.round(point.position.x)}, {Math.round(point.position.y)}, {Math.round(point.position.z)})
+          ({Math.round(point.position.x)}, {Math.round(point.position.y)},{' '}
+          {Math.round(point.position.z)})
         </span>
       </div>
-      <button className="text-xs text-red-400 opacity-0 group-hover:opacity-100" onClick={() => onDelete(point.label)}>删除</button>
+      <button
+        className="text-xs text-red-400 opacity-0 group-hover:opacity-100"
+        onClick={() => onDelete(point.label)}
+      >
+        删除
+      </button>
     </div>
   )
 })
@@ -80,30 +86,41 @@ export default function PointListPanel() {
     setEditingLabel(null)
   }, [editingLabel, editValue, updatePoint])
 
-  const handleSelectOnCanvas = useCallback((label: string) => {
-    if (!editor) return
-    const shape = editor.getCurrentPageShapes().find(
-      (s) => s.type === 'probe-point' && s.props.pointData?.label === label
-    )
-    if (shape) {
-      editor.select(shape.id)
-      editor.zoomToSelection()
-    }
-  }, [editor])
+  const handleSelectOnCanvas = useCallback(
+    (label: string) => {
+      if (!editor) return
+      const shape = editor
+        .getCurrentPageShapes()
+        .find((s) => s.type === 'probe-point' && s.props.pointData?.label === label)
+      if (shape) {
+        editor.select(shape.id)
+        editor.zoomToSelection()
+      }
+    },
+    [editor],
+  )
 
-  const handleDelete = useCallback((label: string) => {
-    if (confirm(`确定删除 ${label}？`)) removePoint(label)
-  }, [removePoint])
+  const handleDelete = useCallback(
+    (label: string) => {
+      if (confirm(`确定删除 ${label}？`)) removePoint(label)
+    },
+    [removePoint],
+  )
 
   const [editingPosLabel, setEditingPosLabel] = useState<string | null>(null)
   const [posInput, setPosInput] = useState('')
 
-  const handleEditPosition = useCallback((label: string) => {
-    const point = points.find((p) => p.label === label)
-    if (!point) return
-    setEditingPosLabel(label)
-    setPosInput(`${Math.round(point.position.x)}, ${Math.round(point.position.y)}, ${Math.round(point.position.z)}`)
-  }, [points])
+  const handleEditPosition = useCallback(
+    (label: string) => {
+      const point = points.find((p) => p.label === label)
+      if (!point) return
+      setEditingPosLabel(label)
+      setPosInput(
+        `${Math.round(point.position.x)}, ${Math.round(point.position.y)}, ${Math.round(point.position.z)}`,
+      )
+    },
+    [points],
+  )
 
   const handleConfirmPosition = useCallback(() => {
     if (!editingPosLabel) return
@@ -143,13 +160,26 @@ export default function PointListPanel() {
               autoFocus
               value={posInput}
               onChange={(e) => setPosInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmPosition(); if (e.key === 'Escape') setEditingPosLabel(null) }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConfirmPosition()
+                if (e.key === 'Escape') setEditingPosLabel(null)
+              }}
               placeholder="X, Y, Z"
               className="w-full border rounded px-2 py-1 text-sm mb-3"
             />
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setEditingPosLabel(null)} className="px-3 py-1 text-sm text-gray-600">取消</button>
-              <button onClick={handleConfirmPosition} className="px-3 py-1 text-sm bg-blue-500 text-white rounded">确认</button>
+              <button
+                onClick={() => setEditingPosLabel(null)}
+                className="px-3 py-1 text-sm text-gray-600"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmPosition}
+                className="px-3 py-1 text-sm bg-blue-500 text-white rounded"
+              >
+                确认
+              </button>
             </div>
           </div>
         </div>

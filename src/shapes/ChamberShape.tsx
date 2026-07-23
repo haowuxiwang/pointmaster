@@ -1,14 +1,22 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Rectangle2d } from 'tldraw'
 import { cuboidPath, cylinderPath } from './utils'
-import { project3Dto2D, CHAMBER_SCALE, CYLINDER_COMPRESSION, projections } from '@/core/projection/isometric'
+import {
+  project3Dto2D,
+  CHAMBER_SCALE,
+  CYLINDER_COMPRESSION,
+  projections,
+} from '@/core/projection/isometric'
 import { useProjectStore } from '@/store/projectStore'
 import type { Chamber, RoomContext } from '@/types'
 
-type ChamberShape = TLBaseShape<'chamber', {
-  w: number
-  h: number
-  chamberData: Chamber
-}>
+type ChamberShape = TLBaseShape<
+  'chamber',
+  {
+    w: number
+    h: number
+    chamberData: Chamber
+  }
+>
 
 // Track editing values across renders (keyed by shape ID)
 const editingValues = new Map<string, string>()
@@ -18,31 +26,69 @@ function renderRoomContext(roomCtx: RoomContext, scale: number) {
   const p = (x: number, y: number, z: number) => project3Dto2D(x, y, z, scale)
 
   // Room outline vertices
-  const ox = offset.x, oy = offset.y, oz = offset.z
-  const rw = roomDimensions.width, rd = roomDimensions.depth, rh = roomDimensions.height
+  const ox = offset.x,
+    oy = offset.y,
+    oz = offset.z
+  const rw = roomDimensions.width,
+    rd = roomDimensions.depth,
+    rh = roomDimensions.height
   const rv = [
-    p(ox, oy, oz), p(ox + rw, oy, oz), p(ox + rw, oy + rd, oz), p(ox, oy + rd, oz),
-    p(ox, oy, oz + rh), p(ox + rw, oy, oz + rh), p(ox + rw, oy + rd, oz + rh), p(ox, oy + rd, oz + rh),
+    p(ox, oy, oz),
+    p(ox + rw, oy, oz),
+    p(ox + rw, oy + rd, oz),
+    p(ox, oy + rd, oz),
+    p(ox, oy, oz + rh),
+    p(ox + rw, oy, oz + rh),
+    p(ox + rw, oy + rd, oz + rh),
+    p(ox, oy + rd, oz + rh),
   ]
   const roomEdges = [
-    [rv[0], rv[1]], [rv[1], rv[2]], [rv[2], rv[3]], [rv[3], rv[0]],
-    [rv[4], rv[5]], [rv[5], rv[6]], [rv[6], rv[7]], [rv[7], rv[4]],
-    [rv[0], rv[4]], [rv[1], rv[5]], [rv[2], rv[6]], [rv[3], rv[7]],
+    [rv[0], rv[1]],
+    [rv[1], rv[2]],
+    [rv[2], rv[3]],
+    [rv[3], rv[0]],
+    [rv[4], rv[5]],
+    [rv[5], rv[6]],
+    [rv[6], rv[7]],
+    [rv[7], rv[4]],
+    [rv[0], rv[4]],
+    [rv[1], rv[5]],
+    [rv[2], rv[6]],
+    [rv[3], rv[7]],
   ]
   const roomPath = roomEdges.map(([a, b]) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`).join(' ')
 
   // Other devices (e.g. AC unit) - wireframe cuboid
-  const devicePaths = devices.map(dev => {
-    const dx = dev.position.x, dy = dev.position.y, dz = dev.position.z
-    const dw = dev.dimensions.width, dd = dev.dimensions.depth, dh = dev.dimensions.height
+  const devicePaths = devices.map((dev) => {
+    const dx = dev.position.x,
+      dy = dev.position.y,
+      dz = dev.position.z
+    const dw = dev.dimensions.width,
+      dd = dev.dimensions.depth,
+      dh = dev.dimensions.height
     const dv = [
-      p(dx, dy, dz), p(dx + dw, dy, dz), p(dx + dw, dy + dd, dz), p(dx, dy + dd, dz),
-      p(dx, dy, dz + dh), p(dx + dw, dy, dz + dh), p(dx + dw, dy + dd, dz + dh), p(dx, dy + dd, dz + dh),
+      p(dx, dy, dz),
+      p(dx + dw, dy, dz),
+      p(dx + dw, dy + dd, dz),
+      p(dx, dy + dd, dz),
+      p(dx, dy, dz + dh),
+      p(dx + dw, dy, dz + dh),
+      p(dx + dw, dy + dd, dz + dh),
+      p(dx, dy + dd, dz + dh),
     ]
     const edges = [
-      [dv[0], dv[1]], [dv[1], dv[2]], [dv[2], dv[3]], [dv[3], dv[0]],
-      [dv[4], dv[5]], [dv[5], dv[6]], [dv[6], dv[7]], [dv[7], dv[4]],
-      [dv[0], dv[4]], [dv[1], dv[5]], [dv[2], dv[6]], [dv[3], dv[7]],
+      [dv[0], dv[1]],
+      [dv[1], dv[2]],
+      [dv[2], dv[3]],
+      [dv[3], dv[0]],
+      [dv[4], dv[5]],
+      [dv[5], dv[6]],
+      [dv[6], dv[7]],
+      [dv[7], dv[4]],
+      [dv[0], dv[4]],
+      [dv[1], dv[5]],
+      [dv[2], dv[6]],
+      [dv[3], dv[7]],
     ]
     const edgesPath = edges.map(([a, b]) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`).join(' ')
     // Label position: top center of device
@@ -54,12 +100,16 @@ function renderRoomContext(roomCtx: RoomContext, scale: number) {
   // Door markers - render as rectangle with label
   const doorWidth = 800 // mm
   const doorHeight = 2000 // mm
-  const doorMarkers = doors.map(door => {
+  const doorMarkers = doors.map((door) => {
     const dp = p(door.position.x, door.position.y, door.position.z)
     // Project door dimensions for rectangle
     const doorRight = p(door.position.x + doorWidth, door.position.y, door.position.z)
     const doorTop = p(door.position.x, door.position.y, door.position.z + doorHeight)
-    const doorTopRight = p(door.position.x + doorWidth, door.position.y, door.position.z + doorHeight)
+    const doorTopRight = p(
+      door.position.x + doorWidth,
+      door.position.y,
+      door.position.z + doorHeight,
+    )
     const doorRect = `M ${dp.x} ${dp.y} L ${doorRight.x} ${doorRight.y} L ${doorTopRight.x} ${doorTopRight.y} L ${doorTop.x} ${doorTop.y} Z`
     return { x: dp.x, y: dp.y, label: door.label ?? '门', doorRect }
   })
@@ -116,8 +166,8 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
       const r = radius * CHAMBER_SCALE
       const h = height * CHAMBER_SCALE
       const ry = r * CYLINDER_COMPRESSION
-      const stubLength = 15 * CHAMBER_SCALE  // matches cylinderPath
-      const stubHalf = 4 * CHAMBER_SCALE     // flange half-width
+      const stubLength = 15 * CHAMBER_SCALE // matches cylinderPath
+      const stubHalf = 4 * CHAMBER_SCALE // flange half-width
       const headHeight = r * 0.3
       const supportHeight = 50 * CHAMBER_SCALE
       // Agitator shaft extends above top
@@ -144,31 +194,57 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
 
     // Main chamber vertices
     allPoints.push(
-      p(0, 0, 0), p(width, 0, 0), p(width, depth, 0), p(0, depth, 0),
-      p(0, 0, height), p(width, 0, height), p(width, depth, height), p(0, depth, height),
+      p(0, 0, 0),
+      p(width, 0, 0),
+      p(width, depth, 0),
+      p(0, depth, 0),
+      p(0, 0, height),
+      p(width, 0, height),
+      p(width, depth, height),
+      p(0, depth, height),
     )
 
     // Room context vertices (room outline + devices)
     if (chamberData.roomContext) {
       const rc = chamberData.roomContext
-      const ox = rc.offset.x, oy = rc.offset.y, oz = rc.offset.z
-      const rw = rc.roomDimensions.width, rd = rc.roomDimensions.depth, rh = rc.roomDimensions.height
+      const ox = rc.offset.x,
+        oy = rc.offset.y,
+        oz = rc.offset.z
+      const rw = rc.roomDimensions.width,
+        rd = rc.roomDimensions.depth,
+        rh = rc.roomDimensions.height
       allPoints.push(
-        p(ox, oy, oz), p(ox + rw, oy, oz), p(ox + rw, oy + rd, oz), p(ox, oy + rd, oz),
-        p(ox, oy, oz + rh), p(ox + rw, oy, oz + rh), p(ox + rw, oy + rd, oz + rh), p(ox, oy + rd, oz + rh),
+        p(ox, oy, oz),
+        p(ox + rw, oy, oz),
+        p(ox + rw, oy + rd, oz),
+        p(ox, oy + rd, oz),
+        p(ox, oy, oz + rh),
+        p(ox + rw, oy, oz + rh),
+        p(ox + rw, oy + rd, oz + rh),
+        p(ox, oy + rd, oz + rh),
       )
       for (const dev of rc.devices) {
-        const dx = dev.position.x, dy = dev.position.y, dz = dev.position.z
-        const dw = dev.dimensions.width, dd = dev.dimensions.depth, dh = dev.dimensions.height
+        const dx = dev.position.x,
+          dy = dev.position.y,
+          dz = dev.position.z
+        const dw = dev.dimensions.width,
+          dd = dev.dimensions.depth,
+          dh = dev.dimensions.height
         allPoints.push(
-          p(dx, dy, dz), p(dx + dw, dy, dz), p(dx + dw, dy + dd, dz), p(dx, dy + dd, dz),
-          p(dx, dy, dz + dh), p(dx + dw, dy, dz + dh), p(dx + dw, dy + dd, dz + dh), p(dx, dy + dd, dz + dh),
+          p(dx, dy, dz),
+          p(dx + dw, dy, dz),
+          p(dx + dw, dy + dd, dz),
+          p(dx, dy + dd, dz),
+          p(dx, dy, dz + dh),
+          p(dx + dw, dy, dz + dh),
+          p(dx + dw, dy + dd, dz + dh),
+          p(dx, dy + dd, dz + dh),
         )
       }
     }
 
-    const xs = allPoints.map(v => v.x)
-    const ys = allPoints.map(v => v.y)
+    const xs = allPoints.map((v) => v.x)
+    const ys = allPoints.map((v) => v.y)
     const minX = Math.min(...xs) - 20
     const minY = Math.min(...ys) - 30
     const maxX = Math.max(...xs) + 20
@@ -188,10 +264,11 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     const { type, dimensions } = chamberData
     const { width, depth, height, layers = 1 } = dimensions
     // Subscribe to viewMode for projection + hidden line updates
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     const viewMode = useProjectStore((s) => s.viewMode)
     const projection = projections[viewMode]
 
-    let layerPath: string = ''
+    let layerPath: string
     let headPath: string = ''
     let supportsPath: string = ''
     let nozzlesPath: string = ''
@@ -211,7 +288,14 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     if (type === 'cylinder') {
       isCylinder = true
       radius = chamberData.radius ?? Math.min(width, depth) / 2
-      const result = cylinderPath(radius, height, 0.2, layers, chamberData.nozzles, chamberData.hasCoil)
+      const result = cylinderPath(
+        radius,
+        height,
+        0.2,
+        layers,
+        chamberData.nozzles,
+        chamberData.hasCoil,
+      )
       topEllipse = result.topEllipse
       bottomBackArc = result.bottomBackArc
       bottomFrontArc = result.bottomFrontArc
@@ -299,7 +383,13 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
       return (
         <SVGContainer>
           {/* Back half of bottom ellipse (hidden line) */}
-          <path d={bottomBackArc} fill="none" stroke="#999" strokeWidth={0.8} strokeDasharray="4 2" />
+          <path
+            d={bottomBackArc}
+            fill="none"
+            stroke="#999"
+            strokeWidth={0.8}
+            strokeDasharray="4 2"
+          />
 
           {/* Front face fill (white, hides back lines) */}
           <path d={frontFill} fill="#fff" stroke="none" />
@@ -322,14 +412,10 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
           <path d={sideLines} fill="none" stroke="#000" strokeWidth={1} />
 
           {/* Dished head */}
-          {headPath && (
-            <path d={headPath} fill="none" stroke="#000" strokeWidth={1} />
-          )}
+          {headPath && <path d={headPath} fill="none" stroke="#000" strokeWidth={1} />}
 
           {/* Support legs */}
-          {supportsPath && (
-            <path d={supportsPath} fill="none" stroke="#000" strokeWidth={0.8} />
-          )}
+          {supportsPath && <path d={supportsPath} fill="none" stroke="#000" strokeWidth={0.8} />}
 
           {/* Agitator shaft */}
           <path d={shaftPath} fill="none" stroke="#000" strokeWidth={0.8} />
@@ -338,9 +424,7 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
           <path d={bladesPath} fill="none" stroke="#000" strokeWidth={0.6} />
 
           {/* Nozzles */}
-          {nozzlesPath && (
-            <path d={nozzlesPath} fill="none" stroke="#000" strokeWidth={0.8} />
-          )}
+          {nozzlesPath && <path d={nozzlesPath} fill="none" stroke="#000" strokeWidth={0.8} />}
 
           {/* Coil (dashed internal ellipses) */}
           {coilPath && (
@@ -362,40 +446,44 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     return (
       <SVGContainer>
         {/* Room context (wireframe, solid lines) */}
-        {chamberData.roomContext && (() => {
-          const ctx = renderRoomContext(chamberData.roomContext, CHAMBER_SCALE)
-          return (
-            <g>
-              {/* Room outline - solid */}
-              <path d={ctx.roomPath} fill="none" stroke="#000" strokeWidth={1.0} />
-              {/* Other devices - wireframe edges only */}
-              {ctx.devicePaths.map((dp, i) => (
-                <g key={`dev-${i}`}>
-                  <path d={dp.edgesPath} fill="none" stroke="#333" strokeWidth={0.8} />
-                  <text x={dp.labelX} y={dp.labelY} fontSize={10} fill="#000" textAnchor="middle">{dp.name}</text>
-                </g>
-              ))}
-              {/* Door markers - rectangle + label */}
-              {ctx.doorMarkers.map((dm, i) => (
-                <g key={`door-${i}`}>
-                  <path d={dm.doorRect} fill="none" stroke="#000" strokeWidth={1.0} />
-                  <text x={dm.x} y={dm.y - 6} fontSize={10} fill="#000" textAnchor="middle" fontWeight="bold">
-                    {dm.label}
-                  </text>
-                </g>
-              ))}
-            </g>
-          )
-        })()}
+        {chamberData.roomContext &&
+          (() => {
+            const ctx = renderRoomContext(chamberData.roomContext, CHAMBER_SCALE)
+            return (
+              <g>
+                {/* Room outline - solid */}
+                <path d={ctx.roomPath} fill="none" stroke="#000" strokeWidth={1.0} />
+                {/* Other devices - wireframe edges only */}
+                {ctx.devicePaths.map((dp, i) => (
+                  <g key={`dev-${i}`}>
+                    <path d={dp.edgesPath} fill="none" stroke="#333" strokeWidth={0.8} />
+                    <text x={dp.labelX} y={dp.labelY} fontSize={10} fill="#000" textAnchor="middle">
+                      {dp.name}
+                    </text>
+                  </g>
+                ))}
+                {/* Door markers - rectangle + label */}
+                {ctx.doorMarkers.map((dm, i) => (
+                  <g key={`door-${i}`}>
+                    <path d={dm.doorRect} fill="none" stroke="#000" strokeWidth={1.0} />
+                    <text
+                      x={dm.x}
+                      y={dm.y - 6}
+                      fontSize={10}
+                      fill="#000"
+                      textAnchor="middle"
+                      fontWeight="bold"
+                    >
+                      {dm.label}
+                    </text>
+                  </g>
+                ))}
+              </g>
+            )
+          })()}
         {/* Layer lines (dashed) */}
         {layerPath && (
-          <path
-            d={layerPath}
-            fill="none"
-            stroke="#999"
-            strokeWidth={1.5}
-            strokeDasharray="6 3"
-          />
+          <path d={layerPath} fill="none" stroke="#999" strokeWidth={1.5} strokeDasharray="6 3" />
         )}
         {/* Hidden edges (dashed) */}
         {hiddenEdgesPath && (
@@ -429,7 +517,14 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
 
     if (type === 'cylinder') {
       const radius = chamberData.radius ?? Math.min(width, depth) / 2
-      const result = cylinderPath(radius, height, 0.2, layers, chamberData.nozzles, chamberData.hasCoil)
+      const result = cylinderPath(
+        radius,
+        height,
+        0.2,
+        layers,
+        chamberData.nozzles,
+        chamberData.hasCoil,
+      )
       const r = radius * 0.2
       const h = height * 0.2
       const shaftPath = `M 0 ${h * 0.05} L 0 ${-h - h * 0.15}`
@@ -444,23 +539,55 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
 
       return (
         <g>
-          <path d={result.bottomBackArc} fill="none" stroke="#999" strokeWidth={0.8} strokeDasharray="4 2" />
+          <path
+            d={result.bottomBackArc}
+            fill="none"
+            stroke="#999"
+            strokeWidth={0.8}
+            strokeDasharray="4 2"
+          />
           <path d={result.frontFill} fill="#fff" stroke="none" />
           <path d={result.topFill} fill="#fff" stroke="none" />
-          {result.layers && <path d={result.layers} fill="none" stroke="#999" strokeWidth={1.5} strokeDasharray="6 3" />}
+          {result.layers && (
+            <path
+              d={result.layers}
+              fill="none"
+              stroke="#999"
+              strokeWidth={1.5}
+              strokeDasharray="6 3"
+            />
+          )}
           <path d={result.bottomFrontArc} fill="none" stroke="#000" strokeWidth={1.2} />
           <path d={result.topEllipse} fill="none" stroke="#000" strokeWidth={1.2} />
           <path d={result.sideLines} fill="none" stroke="#000" strokeWidth={1} />
-          {result.headPath && <path d={result.headPath} fill="none" stroke="#000" strokeWidth={1} />}
-          {result.supportsPath && <path d={result.supportsPath} fill="none" stroke="#000" strokeWidth={0.8} />}
+          {result.headPath && (
+            <path d={result.headPath} fill="none" stroke="#000" strokeWidth={1} />
+          )}
+          {result.supportsPath && (
+            <path d={result.supportsPath} fill="none" stroke="#000" strokeWidth={0.8} />
+          )}
           <path d={shaftPath} fill="none" stroke="#000" strokeWidth={0.8} />
           <path d={bladesPath} fill="none" stroke="#000" strokeWidth={0.6} />
-          {result.nozzlesPath && <path d={result.nozzlesPath} fill="none" stroke="#000" strokeWidth={0.8} />}
-          {result.coilPath && <path d={result.coilPath} fill="none" stroke="#999" strokeWidth={0.6} strokeDasharray="3 2" />}
+          {result.nozzlesPath && (
+            <path d={result.nozzlesPath} fill="none" stroke="#000" strokeWidth={0.8} />
+          )}
+          {result.coilPath && (
+            <path
+              d={result.coilPath}
+              fill="none"
+              stroke="#999"
+              strokeWidth={0.6}
+              strokeDasharray="3 2"
+            />
+          )}
           {result.nozzleLabels.map((nl, i) => (
-            <text key={i} x={nl.x} y={nl.y} fontSize={8} fill="#000" textAnchor="middle">{nl.name}</text>
+            <text key={i} x={nl.x} y={nl.y} fontSize={8} fill="#000" textAnchor="middle">
+              {nl.name}
+            </text>
           ))}
-          <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">{chamberData.name}</text>
+          <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">
+            {chamberData.name}
+          </text>
         </g>
       )
     }
@@ -471,32 +598,64 @@ export class ChamberShapeUtil extends ShapeUtil<ChamberShape> {
     return (
       <g>
         {/* Room context for SVG export - wireframe, solid lines */}
-        {chamberData.roomContext && (() => {
-          const ctx = renderRoomContext(chamberData.roomContext, 0.2)
-          return (
-            <g>
-              <path d={ctx.roomPath} fill="none" stroke="#000" strokeWidth={1.0} />
-              {ctx.devicePaths.map((dp, i) => (
-                <g key={`dev-${i}`}>
-                  <path d={dp.edgesPath} fill="none" stroke="#333" strokeWidth={0.8} />
-                  <text x={dp.labelX} y={dp.labelY} fontSize={10} fill="#000" textAnchor="middle">{dp.name}</text>
-                </g>
-              ))}
-              {ctx.doorMarkers.map((dm, i) => (
-                <g key={`door-${i}`}>
-                  <path d={dm.doorRect} fill="none" stroke="#000" strokeWidth={1.0} />
-                  <text x={dm.x} y={dm.y - 6} fontSize={10} fill="#000" textAnchor="middle" fontWeight="bold">
-                    {dm.label}
-                  </text>
-                </g>
-              ))}
-            </g>
-          )
-        })()}
-        {result.layers && <path d={result.layers} fill="none" stroke="#999" strokeWidth={1.5} strokeDasharray="6 3" />}
-        <path d={result.hiddenEdges} fill="none" stroke="#000" strokeWidth={0.7} strokeDasharray="4 3" />
-        <path d={result.visibleEdges} fill="none" stroke="#000" strokeWidth={1.2} strokeLinejoin="round" />
-        <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">{chamberData.name}</text>
+        {chamberData.roomContext &&
+          (() => {
+            const ctx = renderRoomContext(chamberData.roomContext, 0.2)
+            return (
+              <g>
+                <path d={ctx.roomPath} fill="none" stroke="#000" strokeWidth={1.0} />
+                {ctx.devicePaths.map((dp, i) => (
+                  <g key={`dev-${i}`}>
+                    <path d={dp.edgesPath} fill="none" stroke="#333" strokeWidth={0.8} />
+                    <text x={dp.labelX} y={dp.labelY} fontSize={10} fill="#000" textAnchor="middle">
+                      {dp.name}
+                    </text>
+                  </g>
+                ))}
+                {ctx.doorMarkers.map((dm, i) => (
+                  <g key={`door-${i}`}>
+                    <path d={dm.doorRect} fill="none" stroke="#000" strokeWidth={1.0} />
+                    <text
+                      x={dm.x}
+                      y={dm.y - 6}
+                      fontSize={10}
+                      fill="#000"
+                      textAnchor="middle"
+                      fontWeight="bold"
+                    >
+                      {dm.label}
+                    </text>
+                  </g>
+                ))}
+              </g>
+            )
+          })()}
+        {result.layers && (
+          <path
+            d={result.layers}
+            fill="none"
+            stroke="#999"
+            strokeWidth={1.5}
+            strokeDasharray="6 3"
+          />
+        )}
+        <path
+          d={result.hiddenEdges}
+          fill="none"
+          stroke="#000"
+          strokeWidth={0.7}
+          strokeDasharray="4 3"
+        />
+        <path
+          d={result.visibleEdges}
+          fill="none"
+          stroke="#000"
+          strokeWidth={1.2}
+          strokeLinejoin="round"
+        />
+        <text x={0} y={-10} fontSize={12} fill="#000" textAnchor="middle">
+          {chamberData.name}
+        </text>
       </g>
     )
   }

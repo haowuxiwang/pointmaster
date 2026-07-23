@@ -10,8 +10,8 @@ export const builtinTemplates: EquipmentTemplate[] = [
       name: '脉动真空灭菌器',
       dimensions: { width: 1200, depth: 800, height: 1000, layers: 2 },
       ventPorts: [
-        { x: 100, y: 100, z: 0 },   // 左前排气口（冷点）
-        { x: 1100, y: 100, z: 0 },   // 右前排气口（冷点）
+        { x: 100, y: 100, z: 0 }, // 左前排气口（冷点）
+        { x: 1100, y: 100, z: 0 }, // 右前排气口（冷点）
       ],
     },
     defaultPointCount: 12,
@@ -25,7 +25,7 @@ export const builtinTemplates: EquipmentTemplate[] = [
       name: '立式灭菌器',
       dimensions: { width: 600, depth: 600, height: 800, layers: 1 },
       ventPorts: [
-        { x: 100, y: 100, z: 0 },   // 排气口（冷点）
+        { x: 100, y: 100, z: 0 }, // 排气口（冷点）
       ],
     },
     defaultPointCount: 10,
@@ -40,7 +40,7 @@ export const builtinTemplates: EquipmentTemplate[] = [
       dimensions: { width: 300, depth: 300, height: 2000, layers: 1 },
       radius: 150,
       ventPorts: [
-        { x: 150, y: 50, z: 0 },   // 排气口（冷点）
+        { x: 150, y: 50, z: 0 }, // 排气口（冷点）
       ],
     },
     defaultPointCount: 12,
@@ -49,28 +49,44 @@ export const builtinTemplates: EquipmentTemplate[] = [
     id: 'freeze-dryer',
     name: '冻干机',
     category: '冻干机',
-    chamber: { type: 'cuboid', name: '冻干机', dimensions: { width: 1500, depth: 1000, height: 600, layers: 4 } },
+    chamber: {
+      type: 'cuboid',
+      name: '冻干机',
+      dimensions: { width: 1500, depth: 1000, height: 600, layers: 4 },
+    },
     defaultPointCount: 16,
   },
   {
     id: 'warehouse',
     name: '仓库/冷库',
     category: '仓库',
-    chamber: { type: 'cuboid', name: '仓库', dimensions: { width: 3000, depth: 2000, height: 2500, layers: 1 } },
+    chamber: {
+      type: 'cuboid',
+      name: '仓库',
+      dimensions: { width: 3000, depth: 2000, height: 2500, layers: 1 },
+    },
     defaultPointCount: 20,
   },
   {
     id: 'oven',
     name: '烘箱',
     category: '烘箱',
-    chamber: { type: 'cuboid', name: '烘箱', dimensions: { width: 800, depth: 600, height: 500, layers: 2 } },
+    chamber: {
+      type: 'cuboid',
+      name: '烘箱',
+      dimensions: { width: 800, depth: 600, height: 500, layers: 2 },
+    },
     defaultPointCount: 9,
   },
   {
     id: 'refrigerator',
     name: '冰箱/冷藏柜',
     category: '冷藏设备',
-    chamber: { type: 'cuboid', name: '冰箱', dimensions: { width: 800, depth: 600, height: 1200, layers: 3 } },
+    chamber: {
+      type: 'cuboid',
+      name: '冰箱',
+      dimensions: { width: 800, depth: 600, height: 1200, layers: 3 },
+    },
     defaultPointCount: 10,
   },
   {
@@ -128,9 +144,7 @@ export const builtinTemplates: EquipmentTemplate[] = [
             position: { x: 3200, y: 1200, z: 0 },
           },
         ],
-        doors: [
-          { position: { x: 0, y: 1500, z: 0 }, label: '门' },
-        ],
+        doors: [{ position: { x: 0, y: 1500, z: 0 }, label: '门' }],
       },
     },
     defaultPointCount: 12,

@@ -12,7 +12,9 @@ export default function ChamberPropertiesPanel() {
   const [layers, setLayers] = useState(chamber.dimensions.layers ?? 1)
   const [radius, setRadius] = useState(chamber.radius ?? 150)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [pendingChanges, setPendingChanges] = useState<Parameters<typeof updateChamberDimensions>[0] | null>(null)
+  const [pendingChanges, setPendingChanges] = useState<
+    Parameters<typeof updateChamberDimensions>[0] | null
+  >(null)
 
   // Sync form state when chamber changes externally
   useEffect(() => {
@@ -35,7 +37,10 @@ export default function ChamberPropertiesPanel() {
       setPendingChanges({ width, depth, height, layers })
       setShowConfirm(true)
     } else {
-      updateChamberDimensions({ width, depth, height, layers }, chamber.type === 'cylinder' ? radius : undefined)
+      updateChamberDimensions(
+        { width, depth, height, layers },
+        chamber.type === 'cylinder' ? radius : undefined,
+      )
     }
   }
 
@@ -59,7 +64,9 @@ export default function ChamberPropertiesPanel() {
 
         <div>
           <label className="block text-xs text-gray-500 mb-0.5">形状类型</label>
-          <div className="text-sm text-gray-700">{chamber.type === 'cylinder' ? '圆柱体' : '长方体'}</div>
+          <div className="text-sm text-gray-700">
+            {chamber.type === 'cylinder' ? '圆柱体' : '长方体'}
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
@@ -71,8 +78,8 @@ export default function ChamberPropertiesPanel() {
               max={50000}
               value={width}
               onChange={(e) => {
-                const v = +e.target.value;
-                if (isFinite(v)) setWidth(Math.max(1, Math.min(50000, v)));
+                const v = +e.target.value
+                if (isFinite(v)) setWidth(Math.max(1, Math.min(50000, v)))
               }}
               className="w-full border rounded px-2 py-1 text-sm"
             />
@@ -85,8 +92,8 @@ export default function ChamberPropertiesPanel() {
               max={50000}
               value={depth}
               onChange={(e) => {
-                const v = +e.target.value;
-                if (isFinite(v)) setDepth(Math.max(1, Math.min(50000, v)));
+                const v = +e.target.value
+                if (isFinite(v)) setDepth(Math.max(1, Math.min(50000, v)))
               }}
               className="w-full border rounded px-2 py-1 text-sm"
             />
@@ -99,8 +106,8 @@ export default function ChamberPropertiesPanel() {
               max={50000}
               value={height}
               onChange={(e) => {
-                const v = +e.target.value;
-                if (isFinite(v)) setHeight(Math.max(1, Math.min(50000, v)));
+                const v = +e.target.value
+                if (isFinite(v)) setHeight(Math.max(1, Math.min(50000, v)))
               }}
               className="w-full border rounded px-2 py-1 text-sm"
             />
@@ -128,8 +135,8 @@ export default function ChamberPropertiesPanel() {
               max={25000}
               value={radius}
               onChange={(e) => {
-                const v = +e.target.value;
-                if (isFinite(v)) setRadius(Math.max(1, Math.min(25000, v)));
+                const v = +e.target.value
+                if (isFinite(v)) setRadius(Math.max(1, Math.min(25000, v)))
               }}
               className="w-full border rounded px-2 py-1 text-sm"
             />
@@ -155,7 +162,9 @@ export default function ChamberPropertiesPanel() {
         <div className="border-t pt-3 mt-3">
           <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">房间信息</h3>
           <div className="text-sm text-gray-700 mb-1">
-            房间: {chamber.roomContext.roomDimensions.width} x {chamber.roomContext.roomDimensions.depth} x {chamber.roomContext.roomDimensions.height} mm
+            房间: {chamber.roomContext.roomDimensions.width} x{' '}
+            {chamber.roomContext.roomDimensions.depth} x {chamber.roomContext.roomDimensions.height}{' '}
+            mm
           </div>
           {chamber.roomContext.devices.map((d, i) => (
             <div key={i} className="text-xs text-gray-500 ml-2">
@@ -180,7 +189,10 @@ export default function ChamberPropertiesPanel() {
             </p>
             <div className="flex gap-2 justify-end">
               <button
-                onClick={() => { setShowConfirm(false); setPendingChanges(null) }}
+                onClick={() => {
+                  setShowConfirm(false)
+                  setPendingChanges(null)
+                }}
                 className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
               >
                 取消

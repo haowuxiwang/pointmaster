@@ -7,14 +7,10 @@ const DEFAULT_CHAMBER_PAGE_X = 100
 const DEFAULT_CHAMBER_PAGE_Y = 100
 
 export function findChamberShape(editor: Editor) {
-  return editor.getCurrentPageShapes().find(s => s.type === 'chamber')
+  return editor.getCurrentPageShapes().find((s) => s.type === 'chamber')
 }
 
-export function pagePointToChamber3D(
-  editor: Editor,
-  pageX: number,
-  pageY: number,
-): Point3D {
+export function pagePointToChamber3D(editor: Editor, pageX: number, pageY: number): Point3D {
   const chamberShape = findChamberShape(editor)
   const chamberOriginX = chamberShape?.x ?? DEFAULT_CHAMBER_PAGE_X
   const chamberOriginY = chamberShape?.y ?? DEFAULT_CHAMBER_PAGE_Y

@@ -1,11 +1,14 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Circle2d } from 'tldraw'
 import type { ProbePointData } from '@/types'
 
-type ProbePointShape = TLBaseShape<'probe-point', {
-  w: number
-  h: number
-  pointData: ProbePointData
-}>
+type ProbePointShape = TLBaseShape<
+  'probe-point',
+  {
+    w: number
+    h: number
+    pointData: ProbePointData
+  }
+>
 
 // Track editing values across renders (keyed by shape ID)
 const editingValues = new Map<string, string>()
@@ -150,14 +153,7 @@ export class ProbePointShapeUtil extends ShapeUtil<ProbePointShape> {
         {/* Filled dot for export */}
         <circle cx={0} cy={0} r={3} fill="#000" />
         {/* Label above */}
-        <text
-          x={0}
-          y={-8}
-          fontSize={11}
-          fill={LABEL_COLOR}
-          fontWeight="bold"
-          textAnchor="middle"
-        >
+        <text x={0} y={-8} fontSize={11} fill={LABEL_COLOR} fontWeight="bold" textAnchor="middle">
           {label}
         </text>
       </g>

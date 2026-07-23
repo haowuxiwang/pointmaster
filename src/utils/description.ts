@@ -51,14 +51,22 @@ function distance3D(a: Point3D, b: Point3D): number {
 
 function nearbyTypeLabel(type: string): string | null {
   switch (type) {
-    case 'at-drain-port': return '与排水口重合'
-    case 'at-inlet-port': return '与进气口重合'
-    case 'at-built-in-probe': return '与自带探头重合'
-    case 'vent-port': return '排气口冷点'
-    case 'nearby-drain-port': return '靠近排水口'
-    case 'nearby-inlet-port': return '靠近进气口'
-    case 'nearby-built-in-probe': return '靠近自带探头'
-    default: return null
+    case 'at-drain-port':
+      return '与排水口重合'
+    case 'at-inlet-port':
+      return '与进气口重合'
+    case 'at-built-in-probe':
+      return '与自带探头重合'
+    case 'vent-port':
+      return '排气口冷点'
+    case 'nearby-drain-port':
+      return '靠近排水口'
+    case 'nearby-inlet-port':
+      return '靠近进气口'
+    case 'nearby-built-in-probe':
+      return '靠近自带探头'
+    default:
+      return null
   }
 }
 
@@ -76,11 +84,16 @@ function findNearbySpecial(
     const dist = distance3D(point.position, fs.position)
     if (dist < threshold) {
       switch (fs.type) {
-        case 'drain-port': return '靠近排水口'
-        case 'inlet-port': return '靠近进气口'
-        case 'built-in-probe': return '靠近自带探头'
-        case 'vent-port': return '靠近排气口冷点'
-        default: return `靠近${fs.label}`
+        case 'drain-port':
+          return '靠近排水口'
+        case 'inlet-port':
+          return '靠近进气口'
+        case 'built-in-probe':
+          return '靠近自带探头'
+        case 'vent-port':
+          return '靠近排气口冷点'
+        default:
+          return `靠近${fs.label}`
       }
     }
   }

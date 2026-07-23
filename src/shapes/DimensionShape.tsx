@@ -2,13 +2,16 @@ import { ShapeUtil, T, TLBaseShape, SVGContainer, Rectangle2d } from 'tldraw'
 import { project3Dto2D, CHAMBER_SCALE } from '@/core/projection/isometric'
 import type { Point3D } from '@/types'
 
-type DimensionShape = TLBaseShape<'dimension', {
-  w: number
-  h: number
-  from: Point3D
-  to: Point3D
-  label: string
-}>
+type DimensionShape = TLBaseShape<
+  'dimension',
+  {
+    w: number
+    h: number
+    from: Point3D
+    to: Point3D
+    label: string
+  }
+>
 
 // Track editing values across renders (keyed by shape ID)
 const editingValues = new Map<string, string>()
@@ -56,7 +59,7 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
     const p2 = project3Dto2D(to.x, to.y, to.z, CHAMBER_SCALE)
     const pad = 20
     const minX = Math.min(p1.x, p2.x) - pad
-    const minY = Math.min(p1.y, p2.y) - pad - 15  // extra for label above
+    const minY = Math.min(p1.y, p2.y) - pad - 15 // extra for label above
     const maxX = Math.max(p1.x, p2.x) + pad
     const maxY = Math.max(p1.y, p2.y) + pad
     return new Rectangle2d({
@@ -79,8 +82,10 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
     return (
       <SVGContainer>
         <line
-          x1={p1.x} y1={p1.y}
-          x2={p2.x} y2={p2.y}
+          x1={p1.x}
+          y1={p1.y}
+          x2={p2.x}
+          y2={p2.y}
           stroke="#e74c3c"
           strokeWidth={1}
           strokeDasharray="4 2"
@@ -131,12 +136,7 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
             />
           </foreignObject>
         ) : (
-          <text
-            x={mx} y={my - 8}
-            fontSize={10}
-            fill="#e74c3c"
-            textAnchor="middle"
-          >
+          <text x={mx} y={my - 8} fontSize={10} fill="#e74c3c" textAnchor="middle">
             {label}
           </text>
         )}
@@ -152,10 +152,20 @@ export class DimensionShapeUtil extends ShapeUtil<DimensionShape> {
     const my = (p1.y + p2.y) / 2
     return (
       <g>
-        <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#e74c3c" strokeWidth={1} strokeDasharray="4 2" />
+        <line
+          x1={p1.x}
+          y1={p1.y}
+          x2={p2.x}
+          y2={p2.y}
+          stroke="#e74c3c"
+          strokeWidth={1}
+          strokeDasharray="4 2"
+        />
         <circle cx={p1.x} cy={p1.y} r={3} fill="#e74c3c" />
         <circle cx={p2.x} cy={p2.y} r={3} fill="#e74c3c" />
-        <text x={mx} y={my - 8} fontSize={10} fill="#e74c3c" textAnchor="middle">{label}</text>
+        <text x={mx} y={my - 8} fontSize={10} fill="#e74c3c" textAnchor="middle">
+          {label}
+        </text>
       </g>
     )
   }

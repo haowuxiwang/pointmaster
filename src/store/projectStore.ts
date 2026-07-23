@@ -1,28 +1,35 @@
-import { create } from 'zustand';
-import { Chamber, ProbePointData, EquipmentTemplate, ProjectData, PlacementParams } from '@/types';
-import { uniformPlacement } from '@/core/placement';
-import { CHAMBER_SCALE, ViewMode, projections } from '@/core/projection/isometric';
-import { generatePlacementDescription } from '@/utils/description';
-import { hasPointData, POINT_SHAPE_TYPES } from '@/types';
-import type { Editor, TLShapeId } from 'tldraw';
-import { createShapeId } from 'tldraw';
+import { create } from 'zustand'
+import { Chamber, ProbePointData, EquipmentTemplate, ProjectData, PlacementParams } from '@/types'
+import { uniformPlacement } from '@/core/placement'
+import { CHAMBER_SCALE, ViewMode, projections } from '@/core/projection/isometric'
+import { generatePlacementDescription } from '@/utils/description'
+import { hasPointData, POINT_SHAPE_TYPES } from '@/types'
+import { showToast } from '@/components/Toast'
+import type { Editor, TLShapeId } from 'tldraw'
+import { createShapeId } from 'tldraw'
 
 function createPointShape(
   editor: Editor,
-  chamberShapeId: TLShapeId,
   point: ProbePointData,
   index: number,
   shapeType: string = 'probe-point',
 ): void {
   const viewMode = useProjectStore.getState().viewMode
-  const projected = projections[viewMode].project(point.position.x, point.position.y, point.position.z, CHAMBER_SCALE)
+  const projected = projections[viewMode].project(
+    point.position.x,
+    point.position.y,
+    point.position.z,
+    CHAMBER_SCALE,
+  )
+  // Use chamber page position + projected offset for absolute positioning
+  const chamberPageX = useProjectStore.getState().chamberPageX
+  const chamberPageY = useProjectStore.getState().chamberPageY
   const pointId = createShapeId(`${shapeType}-${index}`)
   editor.createShape({
     id: pointId,
     type: shapeType as any,
-    parentId: chamberShapeId,
-    x: projected.x,
-    y: projected.y,
+    x: chamberPageX + projected.x,
+    y: chamberPageY + projected.y,
     props: {
       w: 40,
       h: 40,
@@ -37,6 +44,7 @@ function syncPointsToCanvas(
   chamber: Chamber,
   newPoints: ProbePointData[],
   fixedShapes: Array<{ position: import('@/types').Point3D; label: string; type: string }>,
+  keepDescription: boolean = false,
 ): void {
   // Only delete probe-point shapes, preserve device components (drain-port, inlet-port, built-in-probe)
   const existingProbes = editor.getCurrentPageShapes().filter((s) => s.type === 'probe-point')
@@ -44,28 +52,43 @@ function syncPointsToCanvas(
 
   // Create new point shapes
   newPoints.forEach((point, index) => {
-    createPointShape(editor, chamberShapeId, point, index)
+    createPointShape(editor, point, index)
   })
 
   // Switch to select tool
   editor.setCurrentTool('select')
 
-  // Generate placement description
-  const existingDesc = editor.getCurrentPageShapes().find(s => s.id === createShapeId('placement-desc'))
-  if (existingDesc) editor.deleteShapes([existingDesc.id])
-  const description = generatePlacementDescription(chamber, newPoints, fixedShapes)
+  // Generate placement description (skip if user chose to keep existing)
   const descId = createShapeId('placement-desc')
-  const cPagePos = editor.getShapePageTransform(chamberShapeId)?.point()
-  const cPageX = cPagePos?.x ?? 100
-  const cPageY = cPagePos?.y ?? 100
-  const chamberBottom = getChamberProjectedBottom(chamber)
-  editor.createShape({
-    id: descId,
-    type: 'text-annotation',
-    x: cPageX,
-    y: cPageY + chamberBottom + 30,
-    props: { w: 300, h: 120, content: description, fontSize: 11 },
-  })
+  const existingDesc = editor.getCurrentPageShapes().find((s) => s.id === descId)
+
+  if (keepDescription && existingDesc) {
+    // Only reposition the description below the chamber
+    const cPagePos = editor.getShapePageTransform(chamberShapeId)?.point()
+    const cPageX = cPagePos?.x ?? 100
+    const cPageY = cPagePos?.y ?? 100
+    const chamberBottom = getChamberProjectedBottom(chamber)
+    editor.updateShape({
+      id: descId,
+      type: 'text-annotation',
+      x: cPageX,
+      y: cPageY + chamberBottom + 30,
+    })
+  } else {
+    if (existingDesc) editor.deleteShapes([existingDesc.id])
+    const description = generatePlacementDescription(chamber, newPoints, fixedShapes)
+    const cPagePos = editor.getShapePageTransform(chamberShapeId)?.point()
+    const cPageX = cPagePos?.x ?? 100
+    const cPageY = cPagePos?.y ?? 100
+    const chamberBottom = getChamberProjectedBottom(chamber)
+    editor.createShape({
+      id: descId,
+      type: 'text-annotation',
+      x: cPageX,
+      y: cPageY + chamberBottom + 30,
+      props: { w: 300, h: 120, content: description, fontSize: 11 },
+    })
+  }
 
   // Zoom to fit all content including the description
   editor.zoomToFit({ animation: { duration: 300 } })
@@ -75,6 +98,8 @@ function syncPointsToCanvas(
 function reprojectShapes(editor: Editor): void {
   const viewMode = useProjectStore.getState().viewMode
   const projection = projections[viewMode]
+  const chamberPageX = useProjectStore.getState().chamberPageX
+  const chamberPageY = useProjectStore.getState().chamberPageY
   const shapes = editor.getCurrentPageShapes()
   for (const shape of shapes) {
     if (!POINT_SHAPE_TYPES.has(shape.type)) continue
@@ -84,74 +109,83 @@ function reprojectShapes(editor: Editor): void {
     editor.updateShape({
       id: shape.id,
       type: shape.type as any,
-      parentId: shape.parentId,
-      x: projected.x,
-      y: projected.y,
+      x: chamberPageX + projected.x,
+      y: chamberPageY + projected.y,
     })
   }
 }
 
 function getChamberProjectedBottom(chamber: Chamber): number {
-  const { width, depth, height } = chamber.dimensions;
-  const sinA = Math.sin(Math.PI / 6);
+  const { width, depth, height } = chamber.dimensions
+  const sinA = Math.sin(Math.PI / 6)
   const vertices = [
-    { x: 0, y: 0, z: 0 }, { x: width, y: 0, z: 0 },
-    { x: width, y: depth, z: 0 }, { x: 0, y: depth, z: 0 },
-    { x: 0, y: 0, z: height }, { x: width, y: 0, z: height },
-    { x: width, y: depth, z: height }, { x: 0, y: depth, z: height },
-  ];
-  let maxY = -Infinity;
+    { x: 0, y: 0, z: 0 },
+    { x: width, y: 0, z: 0 },
+    { x: width, y: depth, z: 0 },
+    { x: 0, y: depth, z: 0 },
+    { x: 0, y: 0, z: height },
+    { x: width, y: 0, z: height },
+    { x: width, y: depth, z: height },
+    { x: 0, y: depth, z: height },
+  ]
+  let maxY = -Infinity
   for (const v of vertices) {
-    const projY = (v.x + v.y) * sinA * CHAMBER_SCALE - v.z * CHAMBER_SCALE;
-    if (projY > maxY) maxY = projY;
+    const projY = (v.x + v.y) * sinA * CHAMBER_SCALE - v.z * CHAMBER_SCALE
+    if (projY > maxY) maxY = projY
   }
-  return maxY;
+  return maxY
 }
 
 interface ProjectState {
-  projectName: string;
-  chamber: Chamber;
-  points: ProbePointData[];
-  currentZLevel: number;
-  pointCount: number;
-  templates: EquipmentTemplate[];
-  recentProjects: ProjectData[];
-  editor: Editor | null;
-  chamberShapeId: TLShapeId | null;
-  chamberPageX: number;
-  chamberPageY: number;
-  createdAt: string | null;
-  viewMode: ViewMode;
+  projectName: string
+  chamber: Chamber
+  points: ProbePointData[]
+  currentZLevel: number
+  pointCount: number
+  templates: EquipmentTemplate[]
+  recentProjects: ProjectData[]
+  editor: Editor | null
+  chamberShapeId: TLShapeId | null
+  chamberPageX: number
+  chamberPageY: number
+  createdAt: string | null
+  viewMode: ViewMode
+  /** Keep existing description during re-placement instead of regenerating */
+  placementKeepDescription: boolean
   /** Pending project data waiting for editor to be ready (deferred load) */
-  pendingProject: ProjectData | null;
+  pendingProject: ProjectData | null
   /** Pending template waiting for editor to be ready (deferred load) */
-  pendingTemplate: EquipmentTemplate | null;
+  pendingTemplate: EquipmentTemplate | null
 
-  setEditor: (editor: Editor | null) => void;
-  setProjectName: (name: string) => void;
-  setChamber: (chamber: Chamber) => void;
-  updateChamberDimensions: (dimensions: Partial<import('@/types').ChamberDimensions>, radius?: number) => void;
-  setPoints: (points: ProbePointData[]) => void;
-  addPoint: (point: ProbePointData) => void;
-  removePoint: (label: string) => void;
-  updatePoint: (label: string, updates: Partial<ProbePointData>) => void;
-  updatePointPosition: (label: string, position: { x: number; y: number; z: number }) => void;
-  setCurrentZLevel: (z: number) => void;
-  setPointCount: (count: number) => void;
-  setViewMode: (mode: ViewMode) => void;
-  autoPlace: (params: PlacementParams) => void;
-  uniformPlace: () => void;
-  saveProject: () => ProjectData;
-  loadProject: (data: ProjectData) => void;
-  loadTemplate: (template: EquipmentTemplate) => void;
-  flushPendingLoad: () => void;
+  setEditor: (editor: Editor | null) => void
+  setPlacementKeepDescription: (keep: boolean) => void
+  setProjectName: (name: string) => void
+  setChamber: (chamber: Chamber) => void
+  updateChamberDimensions: (
+    dimensions: Partial<import('@/types').ChamberDimensions>,
+    radius?: number,
+  ) => void
+  setPoints: (points: ProbePointData[]) => void
+  addPoint: (point: ProbePointData) => void
+  removePoint: (label: string) => void
+  updatePoint: (label: string, updates: Partial<ProbePointData>) => void
+  updatePointPosition: (label: string, position: { x: number; y: number; z: number }) => void
+  setCurrentZLevel: (z: number) => void
+  setPointCount: (count: number) => void
+  setViewMode: (mode: ViewMode) => void
+  autoPlace: (params: PlacementParams) => void
+  uniformPlace: () => void
+  saveProject: () => ProjectData
+  loadProject: (data: ProjectData) => void
+  loadTemplate: (template: EquipmentTemplate) => void
+  flushPendingLoad: () => void
 }
 
 const defaultChamber: Chamber = {
   type: 'cuboid',
   name: '灭菌器',
   dimensions: { width: 1000, depth: 600, height: 800 },
-};
+}
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projectName: '未命名项目',
@@ -167,26 +201,28 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   chamberPageY: 100,
   createdAt: null,
   viewMode: 'isometric',
+  placementKeepDescription: false,
   pendingProject: null,
   pendingTemplate: null,
 
   setEditor: (editor) => set({ editor }),
+  setPlacementKeepDescription: (keep) => set({ placementKeepDescription: keep }),
   setProjectName: (name) => set({ projectName: name }),
   setChamber: (chamber) => {
-    const { editor } = get();
+    const { editor } = get()
     set((s) => ({
       chamber,
       points: [],
       currentZLevel: Math.max(0, Math.min(s.currentZLevel, chamber.dimensions.height)),
-    }));
+    }))
 
     if (editor) {
       // 清除现有形状
-      const shapes = editor.getCurrentPageShapes();
-      editor.deleteShapes(shapes.map((s) => s.id));
+      const shapes = editor.getCurrentPageShapes()
+      editor.deleteShapes(shapes.map((s) => s.id))
 
       // 创建设备形状
-      const chamberId = createShapeId('chamber');
+      const chamberId = createShapeId('chamber')
       editor.createShape({
         id: chamberId,
         type: 'chamber',
@@ -197,25 +233,30 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           h: 600,
           chamberData: chamber,
         },
-      });
-      set({ chamberShapeId: chamberId });
+      })
+      set({ chamberShapeId: chamberId })
     }
   },
   updateChamberDimensions: (dimensionUpdates, radius) => {
-    const { chamber, editor, chamberShapeId, points } = get();
-    const oldDims = chamber.dimensions;
+    const { chamber, editor, chamberShapeId, points } = get()
+    const oldDims = chamber.dimensions
 
-    const newDimensions = { ...oldDims, ...dimensionUpdates };
+    const newDimensions = { ...oldDims, ...dimensionUpdates }
     const newChamber: Chamber = {
       ...chamber,
       dimensions: newDimensions,
       ...(radius !== undefined ? { radius } : {}),
-    };
+    }
 
     // Scale existing points proportionally to new dimensions
-    const scaleX = dimensionUpdates.width != null ? (dimensionUpdates.width ?? oldDims.width) / oldDims.width : 1;
-    const scaleY = dimensionUpdates.depth != null ? (dimensionUpdates.depth ?? oldDims.depth) / oldDims.depth : 1;
-    const scaleZ = dimensionUpdates.height != null ? (dimensionUpdates.height ?? oldDims.height) / oldDims.height : 1;
+    const scaleX =
+      dimensionUpdates.width != null ? (dimensionUpdates.width ?? oldDims.width) / oldDims.width : 1
+    const scaleY =
+      dimensionUpdates.depth != null ? (dimensionUpdates.depth ?? oldDims.depth) / oldDims.depth : 1
+    const scaleZ =
+      dimensionUpdates.height != null
+        ? (dimensionUpdates.height ?? oldDims.height) / oldDims.height
+        : 1
 
     const scaledPoints = points.map((p) => ({
       ...p,
@@ -224,15 +265,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         y: Math.min(p.position.y * scaleY, newDimensions.depth),
         z: Math.min(p.position.z * scaleZ, newDimensions.height),
       },
-    }));
+    }))
 
-    const newZLevel = Math.min(get().currentZLevel, newDimensions.height);
+    const newZLevel = Math.min(get().currentZLevel, newDimensions.height)
 
     set({
       chamber: newChamber,
       points: scaledPoints,
       currentZLevel: newZLevel,
-    });
+    })
 
     // Update canvas: rebuild chamber shape and resync points
     if (editor && chamberShapeId) {
@@ -240,9 +281,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         id: chamberShapeId,
         type: 'chamber',
         props: { chamberData: newChamber },
-      });
+      })
 
-      syncPointsToCanvas(editor, chamberShapeId, newChamber, scaledPoints, []);
+      syncPointsToCanvas(
+        editor,
+        chamberShapeId,
+        newChamber,
+        scaledPoints,
+        [],
+        get().placementKeepDescription,
+      )
     }
   },
   setPoints: (points) => set({ points }),
@@ -251,10 +299,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     try {
       const { editor, chamberShapeId } = get()
       if (editor && chamberShapeId) {
-        createPointShape(editor, chamberShapeId, point, get().points.length - 1)
+        createPointShape(editor, point, get().points.length - 1)
       }
-    } catch (err) {
-      console.error('[projectStore] addPoint failed:', err)
+    } catch {
+      showToast('添加探头失败', 'error')
     }
   },
   removePoint: (label) => {
@@ -263,51 +311,74 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     try {
       if (editor) {
         // Only delete probe-point shapes (not drain-port/inlet-port/built-in-probe)
-        const shape = editor.getCurrentPageShapes().find(
-          (s) => s.type === 'probe-point' && hasPointData(s) && s.props.pointData.label === label
-        )
+        const shape = editor
+          .getCurrentPageShapes()
+          .find(
+            (s) => s.type === 'probe-point' && hasPointData(s) && s.props.pointData.label === label,
+          )
         if (shape) editor.deleteShapes([shape.id])
       }
-    } catch (err) {
-      console.error('[projectStore] removePoint failed:', err)
+    } catch {
+      showToast('删除探头失败', 'error')
     }
   },
   updatePoint: (label, updates) => {
     set((s) => ({
-      points: s.points.map((p) => p.label === label ? { ...p, ...updates } : p),
+      points: s.points.map((p) => (p.label === label ? { ...p, ...updates } : p)),
     }))
     try {
       const { editor } = get()
       if (editor) {
-        const shape = editor.getCurrentPageShapes().find(
-          (s) => s.type === 'probe-point' && hasPointData(s) && s.props.pointData.label === label
-        )
+        const shape = editor
+          .getCurrentPageShapes()
+          .find(
+            (s) => s.type === 'probe-point' && hasPointData(s) && s.props.pointData.label === label,
+          )
         if (shape && hasPointData(shape)) {
-          editor.updateShape({ id: shape.id, type: shape.type as any, props: { pointData: { ...shape.props.pointData, ...updates } } })
+          editor.updateShape({
+            id: shape.id,
+            type: shape.type as any,
+            props: { pointData: { ...shape.props.pointData, ...updates } },
+          })
         }
       }
-    } catch (err) {
-      console.error('[projectStore] updatePoint failed:', err)
+    } catch {
+      showToast('更新探头失败', 'error')
     }
   },
   updatePointPosition: (label, position) => {
     set((s) => ({
-      points: s.points.map((p) => p.label === label ? { ...p, position } : p),
+      points: s.points.map((p) => (p.label === label ? { ...p, position } : p)),
     }))
     try {
       const { editor } = get()
       if (editor) {
-        const shape = editor.getCurrentPageShapes().find(
-          (s) => s.type === 'probe-point' && hasPointData(s) && s.props.pointData.label === label
-        )
+        const shape = editor
+          .getCurrentPageShapes()
+          .find(
+            (s) => s.type === 'probe-point' && hasPointData(s) && s.props.pointData.label === label,
+          )
         if (shape && hasPointData(shape)) {
           const viewMode = get().viewMode
-          const projected = projections[viewMode].project(position.x, position.y, position.z, CHAMBER_SCALE)
-          editor.updateShape({ id: shape.id, type: shape.type as any, parentId: shape.parentId, x: projected.x, y: projected.y, props: { pointData: { ...shape.props.pointData, position } } })
+          const projected = projections[viewMode].project(
+            position.x,
+            position.y,
+            position.z,
+            CHAMBER_SCALE,
+          )
+          const chamberPageX = get().chamberPageX
+          const chamberPageY = get().chamberPageY
+          editor.updateShape({
+            id: shape.id,
+            type: shape.type as any,
+            x: chamberPageX + projected.x,
+            y: chamberPageY + projected.y,
+            props: { pointData: { ...shape.props.pointData, position } },
+          })
         }
       }
-    } catch (err) {
-      console.error('[projectStore] updatePointPosition failed:', err)
+    } catch {
+      showToast('更新探头位置失败', 'error')
     }
   },
   setCurrentZLevel: (z) => {
@@ -325,33 +396,48 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   autoPlace: (params) => {
-    const { chamber, editor, chamberShapeId } = get();
+    const { chamber, editor, chamberShapeId } = get()
 
     // Collect anchor points from canvas (drain ports, inlet ports, built-in probes)
     // These are device components placed by the user — they are NOT part of the placement budget.
     // When included, probe points will be placed nearby these positions.
-    const anchorPoints: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
+    const anchorPoints: Array<{
+      position: import('@/types').Point3D
+      label: string
+      type: string
+    }> = []
     if (editor) {
-      const shapes = editor.getCurrentPageShapes();
+      const shapes = editor.getCurrentPageShapes()
       for (const shape of shapes) {
-        if (!hasPointData(shape) || !shape.props.pointData.position) continue;
-        const pointData = shape.props.pointData;
+        if (!hasPointData(shape) || !shape.props.pointData.position) continue
+        const pointData = shape.props.pointData
 
         if (shape.type === 'drain-port' && params.includeDrainPorts) {
-          anchorPoints.push({ position: pointData.position, label: pointData.label || '排水口', type: 'drain-port' });
+          anchorPoints.push({
+            position: pointData.position,
+            label: pointData.label || '排水口',
+            type: 'drain-port',
+          })
         } else if (shape.type === 'inlet-port' && params.includeInletPorts) {
-          anchorPoints.push({ position: pointData.position, label: pointData.label || '进气口', type: 'inlet-port' });
+          anchorPoints.push({
+            position: pointData.position,
+            label: pointData.label || '进气口',
+            type: 'inlet-port',
+          })
         } else if (shape.type === 'built-in-probe' && params.includeBuiltInProbes) {
-          anchorPoints.push({ position: pointData.position, label: pointData.label || '自带探头', type: 'built-in-probe' });
+          anchorPoints.push({
+            position: pointData.position,
+            label: pointData.label || '自带探头',
+            type: 'built-in-probe',
+          })
         }
       }
     }
 
-    const newPoints: ProbePointData[] = uniformPlacement(
-      chamber,
-      params.totalCount ?? 12,
-      { includeCenter: params.includeCenter ?? true, anchorPoints }
-    );
+    const newPoints: ProbePointData[] = uniformPlacement(chamber, params.totalCount ?? 12, {
+      includeCenter: params.includeCenter ?? true,
+      anchorPoints,
+    })
 
     if (editor && chamberShapeId) {
       // Delete old probe shapes BEFORE setting new points, to avoid removed handler
@@ -360,68 +446,96 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       editor.deleteShapes(existingProbes.map((s) => s.id))
       // Now safe to set new points (added handler won't conflict with empty canvas)
       set({ points: newPoints })
-      syncPointsToCanvas(editor, chamberShapeId, chamber, newPoints, anchorPoints)
+      syncPointsToCanvas(
+        editor,
+        chamberShapeId,
+        chamber,
+        newPoints,
+        anchorPoints,
+        get().placementKeepDescription,
+      )
     } else {
       set({ points: newPoints })
     }
   },
 
   saveProject: () => {
-    const { projectName, chamber, points, createdAt, editor, currentZLevel } = get();
-    const now = new Date().toISOString();
+    const { projectName, chamber, points, createdAt, editor, currentZLevel } = get()
+    const now = new Date().toISOString()
 
     // Collect additional shapes from canvas
-    let drainPorts: ProbePointData[] = [];
-    let inletPorts: ProbePointData[] = [];
-    let builtInProbes: ProbePointData[] = [];
-    let description: { content: string; x: number; y: number } | undefined;
+    const drainPorts: ProbePointData[] = []
+    const inletPorts: ProbePointData[] = []
+    const builtInProbes: ProbePointData[] = []
+    let description: { content: string; x: number; y: number } | undefined
 
     if (editor) {
       for (const shape of editor.getCurrentPageShapes()) {
         if (hasPointData(shape) && shape.props.pointData) {
-          const pd = shape.props.pointData;
-          if (shape.type === 'drain-port') drainPorts.push(pd);
-          else if (shape.type === 'inlet-port') inletPorts.push(pd);
-          else if (shape.type === 'built-in-probe') builtInProbes.push(pd);
-        } else if (shape.type === 'text-annotation' && shape.id === createShapeId('placement-desc')) {
-          description = { content: (shape.props as any).content, x: shape.x, y: shape.y };
+          const pd = shape.props.pointData
+          if (shape.type === 'drain-port') drainPorts.push(pd)
+          else if (shape.type === 'inlet-port') inletPorts.push(pd)
+          else if (shape.type === 'built-in-probe') builtInProbes.push(pd)
+        } else if (
+          shape.type === 'text-annotation' &&
+          shape.id === createShapeId('placement-desc')
+        ) {
+          description = { content: (shape.props as any).content, x: shape.x, y: shape.y }
         }
       }
     }
 
     return {
-      version: '1.0', name: projectName, chamber, points,
-      createdAt: createdAt ?? now, updatedAt: now,
-      drainPorts, inletPorts, builtInProbes, description,
+      version: '1.0',
+      name: projectName,
+      chamber,
+      points,
+      createdAt: createdAt ?? now,
+      updatedAt: now,
+      drainPorts,
+      inletPorts,
+      builtInProbes,
+      description,
       currentZLevel,
-    };
+    }
   },
 
   uniformPlace: () => {
-    const { chamber, editor, chamberShapeId, pointCount } = get();
+    const { chamber, editor, chamberShapeId, pointCount } = get()
 
     // Collect all device shapes as anchor points (for nearby placement)
-    const anchorPoints: Array<{ position: import('@/types').Point3D; label: string; type: string }> = [];
+    const anchorPoints: Array<{
+      position: import('@/types').Point3D
+      label: string
+      type: string
+    }> = []
     if (editor) {
       for (const shape of editor.getCurrentPageShapes()) {
         if (hasPointData(shape) && shape.props.pointData.position) {
-          const pointData = shape.props.pointData;
+          const pointData = shape.props.pointData
           anchorPoints.push({
             position: pointData.position,
             label: pointData.label || shape.type,
             type: shape.type,
-          });
+          })
         }
       }
     }
 
-    const newPoints = uniformPlacement(chamber, pointCount, { anchorPoints });
+    const newPoints = uniformPlacement(chamber, pointCount, { anchorPoints })
 
     if (editor && chamberShapeId) {
       const existingProbes = editor.getCurrentPageShapes().filter((s) => s.type === 'probe-point')
       editor.deleteShapes(existingProbes.map((s) => s.id))
       set({ points: newPoints })
-      syncPointsToCanvas(editor, chamberShapeId, chamber, newPoints, anchorPoints)
+      syncPointsToCanvas(
+        editor,
+        chamberShapeId,
+        chamber,
+        newPoints,
+        anchorPoints,
+        get().placementKeepDescription,
+      )
     } else {
       set({ points: newPoints })
     }
@@ -433,53 +547,54 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       chamber: data.chamber,
       points: data.points,
       createdAt: data.createdAt,
-      currentZLevel: data.currentZLevel !== undefined
-        ? Math.max(0, Math.min(data.currentZLevel, data.chamber.dimensions.height))
-        : Math.max(0, Math.min(get().currentZLevel, data.chamber.dimensions.height)),
+      currentZLevel:
+        data.currentZLevel !== undefined
+          ? Math.max(0, Math.min(data.currentZLevel, data.chamber.dimensions.height))
+          : Math.max(0, Math.min(get().currentZLevel, data.chamber.dimensions.height)),
       pendingProject: null,
       pendingTemplate: null,
-    });
+    })
 
     // Rebuild tldraw shapes
-    const { editor } = get();
+    const { editor } = get()
     if (!editor) {
       // Editor not ready yet — defer canvas rebuild
       set({ pendingProject: data })
       return
     }
     if (editor) {
-      const shapes = editor.getCurrentPageShapes();
-      editor.deleteShapes(shapes.map((s) => s.id));
+      const shapes = editor.getCurrentPageShapes()
+      editor.deleteShapes(shapes.map((s) => s.id))
 
-      const chamberId = createShapeId('chamber');
+      const chamberId = createShapeId('chamber')
       editor.createShape({
         id: chamberId,
         type: 'chamber',
         x: 100,
         y: 100,
         props: { w: 800, h: 600, chamberData: data.chamber },
-      });
-      set({ chamberShapeId: chamberId });
+      })
+      set({ chamberShapeId: chamberId })
 
       // Rebuild point shapes as child shapes of chamber
       data.points.forEach((point, index) => {
-        createPointShape(editor, chamberId, point, index)
-      });
+        createPointShape(editor, point, index)
+      })
 
       // Restore drain ports
-      (data.drainPorts ?? []).forEach((pd, i) => {
-        createPointShape(editor, chamberId, pd, i, 'drain-port')
-      });
+      ;(data.drainPorts ?? []).forEach((pd, i) => {
+        createPointShape(editor, pd, i, 'drain-port')
+      })
 
       // Restore inlet ports
-      (data.inletPorts ?? []).forEach((pd, i) => {
-        createPointShape(editor, chamberId, pd, i, 'inlet-port')
-      });
+      ;(data.inletPorts ?? []).forEach((pd, i) => {
+        createPointShape(editor, pd, i, 'inlet-port')
+      })
 
       // Restore built-in probes
-      (data.builtInProbes ?? []).forEach((pd, i) => {
-        createPointShape(editor, chamberId, pd, i, 'built-in-probe')
-      });
+      ;(data.builtInProbes ?? []).forEach((pd, i) => {
+        createPointShape(editor, pd, i, 'built-in-probe')
+      })
 
       // Restore description
       if (data.description) {
@@ -494,7 +609,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
   loadTemplate: (template) => {
-    const { editor } = get();
+    const { editor } = get()
     set({
       chamber: template.chamber,
       points: [],
@@ -503,7 +618,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       createdAt: null,
       pendingProject: null,
       pendingTemplate: null,
-    });
+    })
 
     if (!editor) {
       set({ pendingTemplate: template })
@@ -511,11 +626,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
     if (editor) {
       // 清除现有形状
-      const shapes = editor.getCurrentPageShapes();
-      editor.deleteShapes(shapes.map((s) => s.id));
+      const shapes = editor.getCurrentPageShapes()
+      editor.deleteShapes(shapes.map((s) => s.id))
 
       // 创建设备形状
-      const chamberId = createShapeId('chamber');
+      const chamberId = createShapeId('chamber')
       editor.createShape({
         id: chamberId,
         type: 'chamber',
@@ -526,8 +641,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           h: 600,
           chamberData: template.chamber,
         },
-      });
-      set({ chamberShapeId: chamberId });
+      })
+      set({ chamberShapeId: chamberId })
     }
   },
 
@@ -543,4 +658,4 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       get().loadTemplate(pendingTemplate)
     }
   },
-}));
+}))

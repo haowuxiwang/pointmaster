@@ -1,12 +1,15 @@
 import { ShapeUtil, T, TLBaseShape, SVGContainer, Circle2d } from 'tldraw'
 import type { ProbePointData } from '@/types'
 
-type DrainPortShape = TLBaseShape<'drain-port', {
-  w: number
-  h: number
-  label: string
-  pointData: ProbePointData
-}>
+type DrainPortShape = TLBaseShape<
+  'drain-port',
+  {
+    w: number
+    h: number
+    label: string
+    pointData: ProbePointData
+  }
+>
 
 // Track editing values across renders (keyed by shape ID)
 const editingValues = new Map<string, string>()
@@ -125,7 +128,9 @@ export class DrainPortShapeUtil extends ShapeUtil<DrainPortShape> {
         <circle cx={0} cy={0} r={12} fill="none" stroke="#000" strokeWidth={1} />
         <line x1={-8} y1={0} x2={8} y2={0} stroke="#000" strokeWidth={1} />
         <line x1={0} y1={-8} x2={0} y2={8} stroke="#000" strokeWidth={1} />
-        <text x={0} y={-18} fontSize={10} fill="#000" textAnchor="middle">{label}</text>
+        <text x={0} y={-18} fontSize={10} fill="#000" textAnchor="middle">
+          {label}
+        </text>
       </g>
     )
   }

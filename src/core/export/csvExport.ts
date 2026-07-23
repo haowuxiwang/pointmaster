@@ -15,15 +15,7 @@ export function generateCSV(
   const { name, dimensions } = chamber
   const { width, depth, height, layers = 1 } = dimensions
 
-  const header = [
-    '序号',
-    '标签',
-    'X(mm)',
-    'Y(mm)',
-    'Z(mm)',
-    '位置描述',
-    '备注',
-  ]
+  const header = ['序号', '标签', 'X(mm)', 'Y(mm)', 'Z(mm)', '位置描述', '备注']
 
   const rows = points.map((p, i) => {
     const pos = getPositionLabel(p, chamber)
@@ -72,8 +64,8 @@ function getPositionLabel(p: ProbePointData, chamber: Chamber): string {
     else vert = '上层'
   }
 
-  let horiz = xRatio < 0.33 ? '左' : xRatio < 0.67 ? '中' : '右'
-  let depthStr = yRatio < 0.33 ? '前' : yRatio < 0.67 ? '' : '后'
+  const horiz = xRatio < 0.33 ? '左' : xRatio < 0.67 ? '中' : '右'
+  const depthStr = yRatio < 0.33 ? '前' : yRatio < 0.67 ? '' : '后'
 
   if (horiz === '中' && !depthStr) return `${vert}中央`
   return `${vert}${horiz}${depthStr}`
@@ -81,19 +73,27 @@ function getPositionLabel(p: ProbePointData, chamber: Chamber): string {
 
 function getNearbyLabel(point: ProbePointData, fixedShapes: FixedShape[]): string {
   switch (point.properties?.type) {
-    case 'at-drain-port': return '与排水口重合'
-    case 'at-inlet-port': return '与进气口重合'
-    case 'at-built-in-probe': return '与自带探头重合'
-    default: break
+    case 'at-drain-port':
+      return '与排水口重合'
+    case 'at-inlet-port':
+      return '与进气口重合'
+    case 'at-built-in-probe':
+      return '与自带探头重合'
+    default:
+      break
   }
   for (const fs of fixedShapes) {
     const d = distance3D(point.position, fs.position)
     if (d < 150) {
       switch (fs.type) {
-        case 'drain-port': return '靠近排水口'
-        case 'inlet-port': return '靠近进气口'
-        case 'built-in-probe': return '靠近自带探头'
-        default: return `靠近${fs.label}`
+        case 'drain-port':
+          return '靠近排水口'
+        case 'inlet-port':
+          return '靠近进气口'
+        case 'built-in-probe':
+          return '靠近自带探头'
+        default:
+          return `靠近${fs.label}`
       }
     }
   }
