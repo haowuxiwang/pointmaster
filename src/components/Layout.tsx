@@ -581,24 +581,47 @@ function TabButton({
 }
 
 function ViewDirectionIndicator() {
+  const [showInfo, setShowInfo] = useState(false)
+
   return (
-    <div
-      className="flex flex-col items-center gap-1"
-      title="观察方向: 从右前方俯视等轴测视角"
-    >
-      <div
-        style={{
-          width: 0,
-          height: 0,
-          borderLeft: '8px solid transparent',
-          borderRight: '8px solid transparent',
-          borderBottom: '16px solid #4b5563',
-          transform: 'rotate(-45deg)',
-        }}
-      />
-      <span style={{ fontSize: '10px', color: '#4b5563', fontWeight: 500, lineHeight: 1 }}>
-        观察方向
-      </span>
+    <div className="relative flex flex-col items-center gap-1">
+      <button
+        onClick={() => setShowInfo(!showInfo)}
+        className="flex flex-col items-center gap-1 cursor-pointer hover:bg-gray-200 rounded px-1 py-0.5"
+        title="点击查看观察方向说明"
+      >
+        <div
+          style={{
+            width: 0,
+            height: 0,
+            borderLeft: '8px solid transparent',
+            borderRight: '8px solid transparent',
+            borderBottom: '16px solid #4b5563',
+            transform: 'rotate(-45deg)',
+          }}
+        />
+        <span style={{ fontSize: '10px', color: '#4b5563', fontWeight: 500, lineHeight: 1 }}>
+          观察方向
+        </span>
+      </button>
+      {showInfo && (
+        <div className="absolute left-10 top-0 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-48 z-50">
+          <div className="text-xs font-semibold text-gray-700 mb-1">观察方向说明</div>
+          <div className="text-xs text-gray-500 space-y-1">
+            <p>当前为<b>等轴测视角</b></p>
+            <p>从设备<b>右前方</b>俯视</p>
+            <p>X轴 = 宽度方向 →</p>
+            <p>Y轴 = 深度方向 ↙</p>
+            <p>Z轴 = 高度方向 ↑</p>
+          </div>
+          <button
+            onClick={() => setShowInfo(false)}
+            className="mt-2 text-xs text-blue-500 hover:text-blue-700"
+          >
+            关闭
+          </button>
+        </div>
+      )}
     </div>
   )
 }
