@@ -2,6 +2,7 @@ node_modules
 dist
 dist-electron
 release
+coverage
 *.local
 .env
 .env.*
@@ -23,3 +24,6 @@ build/*
 
 # Reference materials
 point/
+
+# Internal tooling
+.mimocode/
