@@ -21,7 +21,7 @@ export class DirectionArrowShapeUtil extends ShapeUtil<DirectionArrowShape> {
   }
 
   getDefaultProps(): DirectionArrowShape['props'] {
-    return { w: 120, h: 60, label: '观察方向' }
+    return { w: 140, h: 80, label: '观察方向' }
   }
 
   override canEdit() {
@@ -44,7 +44,7 @@ export class DirectionArrowShapeUtil extends ShapeUtil<DirectionArrowShape> {
     return new Rectangle2d({
       width: shape.props.w,
       height: shape.props.h,
-      isFilled: false,
+      isFilled: true,
     })
   }
 
@@ -62,15 +62,16 @@ export class DirectionArrowShapeUtil extends ShapeUtil<DirectionArrowShape> {
               style={{
                 width: '100%',
                 height: '100%',
-                fontSize: '12px',
-                fontWeight: 500,
-                color: '#374151',
-                border: '1px solid #1976d2',
-                borderRadius: '2px',
-                padding: '2px 4px',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#1e293b',
+                border: '2px solid #3b82f6',
+                borderRadius: '4px',
+                padding: '4px 8px',
                 outline: 'none',
                 background: 'white',
                 textAlign: 'center',
+                boxShadow: '0 2px 8px rgba(59,130,246,0.2)',
               }}
               onInput={(e) => {
                 editingValues.set(shape.id, (e.target as HTMLInputElement).value)
@@ -103,36 +104,91 @@ export class DirectionArrowShapeUtil extends ShapeUtil<DirectionArrowShape> {
       )
     }
 
-    const arrowLen = w * 0.5
-    const arrowH = h * 0.4
-    const startX = (w - arrowLen) / 2
-    const startY = h * 0.35
-    const endX = startX + arrowLen
-    const endY = startY - arrowH
-    const headSize = 8
+    // 3D isometric arrow design
+    const cx = w / 2
+    const cy = h * 0.4
+    const arrowLen = w * 0.45
+    const shaftW = 6
+    const headLen = 14
+    const headW = 12
+
+    // Arrow shaft (3D effect with side face)
+    const shaftStart = { x: cx - arrowLen / 2, y: cy + 4 }
+    const shaftEnd = { x: cx + arrowLen / 2, y: cy - 4 }
+
+    // 3D shaft side
+    const sideOffset = 3
+    const shaftSide = [
+      { x: shaftStart.x, y: shaftStart.y + shaftW },
+      { x: shaftEnd.x, y: shaftEnd.y + shaftW },
+      { x: shaftEnd.x, y: shaftEnd.y + shaftW + sideOffset },
+      { x: shaftStart.x, y: shaftStart.y + shaftW + sideOffset },
+    ]
+
+    // Arrowhead (3D)
+    const tipX = shaftEnd.x + headLen
+    const tipY = shaftEnd.y - headLen * 0.6
+
+    // 3D arrowhead side
+    const headSide = [
+      { x: shaftEnd.x, y: shaftEnd.y + headW / 2 },
+      { x: tipX, y: tipY },
+      { x: tipX, y: tipY + sideOffset },
+      { x: shaftEnd.x, y: shaftEnd.y + headW / 2 + sideOffset },
+    ]
+
+    const toPath = (pts: Array<{ x: number; y: number }>) =>
+      pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
 
     return (
       <SVGContainer>
-        <line
-          x1={startX}
-          y1={startY}
-          x2={endX}
-          y2={endY}
-          stroke="#374151"
-          strokeWidth={2}
-          strokeLinecap="round"
+        {/* Shadow */}
+        <ellipse
+          cx={cx}
+          cy={h * 0.75}
+          rx={w * 0.3}
+          ry={4}
+          fill="rgba(0,0,0,0.08)"
         />
+
+        {/* 3D shaft side face */}
+        <path d={toPath(shaftSide)} fill="#94a3b8" stroke="none" />
+
+        {/* Shaft top face */}
+        <rect
+          x={shaftStart.x}
+          y={shaftStart.y}
+          width={arrowLen}
+          height={shaftW}
+          rx={2}
+          fill="#475569"
+          stroke="#334155"
+          strokeWidth={0.5}
+        />
+
+        {/* 3D arrowhead side face */}
+        <path d={toPath(headSide)} fill="#94a3b8" stroke="none" />
+
+        {/* Arrowhead top face */}
         <polygon
-          points={`${endX},${endY} ${endX - headSize},${endY + headSize * 0.6} ${endX - headSize * 0.3},${endY + headSize}`}
-          fill="#374151"
+          points={`${shaftEnd.x},${shaftEnd.y - headW / 2} ${shaftEnd.x},${shaftEnd.y + headW / 2} ${tipX},${tipY}`}
+          fill="#1e293b"
+          stroke="#0f172a"
+          strokeWidth={0.5}
         />
+
+        {/* Tip highlight */}
+        <circle cx={tipX} cy={tipY} r={2} fill="#60a5fa" />
+
+        {/* Label */}
         <text
-          x={w / 2}
-          y={h - 4}
-          fontSize={11}
-          fill="#374151"
+          x={cx}
+          y={h - 6}
+          fontSize={12}
+          fill="#334151"
           textAnchor="middle"
-          fontWeight="500"
+          fontWeight="600"
+          fontFamily="sans-serif"
         >
           {label}
         </text>
@@ -142,39 +198,45 @@ export class DirectionArrowShapeUtil extends ShapeUtil<DirectionArrowShape> {
 
   toSvg(shape: DirectionArrowShape) {
     const { w, h, label } = shape.props
-    const arrowLen = w * 0.5
-    const arrowH = h * 0.4
-    const startX = (w - arrowLen) / 2
-    const startY = h * 0.35
-    const endX = startX + arrowLen
-    const endY = startY - arrowH
-    const headSize = 8
+    const cx = w / 2
+    const cy = h * 0.4
+    const arrowLen = w * 0.45
+    const shaftW = 6
+    const headLen = 14
+    const headW = 12
+    const sideOffset = 3
+
+    const shaftStart = { x: cx - arrowLen / 2, y: cy + 4 }
+    const shaftEnd = { x: cx + arrowLen / 2, y: cy - 4 }
+
+    const shaftSide = [
+      { x: shaftStart.x, y: shaftStart.y + shaftW },
+      { x: shaftEnd.x, y: shaftEnd.y + shaftW },
+      { x: shaftEnd.x, y: shaftEnd.y + shaftW + sideOffset },
+      { x: shaftStart.x, y: shaftStart.y + shaftW + sideOffset },
+    ]
+
+    const tipX = shaftEnd.x + headLen
+    const tipY = shaftEnd.y - headLen * 0.6
+    const headSide = [
+      { x: shaftEnd.x, y: shaftEnd.y + headW / 2 },
+      { x: tipX, y: tipY },
+      { x: tipX, y: tipY + sideOffset },
+      { x: shaftEnd.x, y: shaftEnd.y + headW / 2 + sideOffset },
+    ]
+
+    const toPath = (pts: Array<{ x: number; y: number }>) =>
+      pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
 
     return (
       <g>
-        <line
-          x1={startX}
-          y1={startY}
-          x2={endX}
-          y2={endY}
-          stroke="#374151"
-          strokeWidth={2}
-          strokeLinecap="round"
-        />
-        <polygon
-          points={`${endX},${endY} ${endX - headSize},${endY + headSize * 0.6} ${endX - headSize * 0.3},${endY + headSize}`}
-          fill="#374151"
-        />
-        <text
-          x={w / 2}
-          y={h - 4}
-          fontSize={11}
-          fill="#374151"
-          textAnchor="middle"
-          fontWeight="500"
-        >
-          {label}
-        </text>
+        <ellipse cx={cx} cy={h * 0.75} rx={w * 0.3} ry={4} fill="rgba(0,0,0,0.08)" />
+        <path d={toPath(shaftSide)} fill="#94a3b8" stroke="none" />
+        <rect x={shaftStart.x} y={shaftStart.y} width={arrowLen} height={shaftW} rx={2} fill="#475569" stroke="#334155" strokeWidth={0.5} />
+        <path d={toPath(headSide)} fill="#94a3b8" stroke="none" />
+        <polygon points={`${shaftEnd.x},${shaftEnd.y - headW / 2} ${shaftEnd.x},${shaftEnd.y + headW / 2} ${tipX},${tipY}`} fill="#1e293b" stroke="#0f172a" strokeWidth={0.5} />
+        <circle cx={tipX} cy={tipY} r={2} fill="#60a5fa" />
+        <text x={cx} y={h - 6} fontSize={12} fill="#334151" textAnchor="middle" fontWeight="600" fontFamily="sans-serif">{label}</text>
       </g>
     )
   }
